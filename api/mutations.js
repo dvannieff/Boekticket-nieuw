@@ -24,7 +24,7 @@ module.exports = async function handler(req, res) {
 
   try {
     // Stap 1: sessie aanmaken
- const sessionBody = JSON.stringify({ accessToken: token, source: 'BoekTicket' });
+ const sessionBody = JSON.stringify({ accessToken: token, source: 'BTicket'});
 // debug
 res.status(200).json({ tokenLength: token.length, tokenStart: token.substring(0, 4) });
 return;
