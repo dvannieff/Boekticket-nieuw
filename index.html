@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BoekTicket</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Syne:wght@400;600;700;800&display=swap');
+
+  :root {
+    --bg: #0e0f13; --surface: #16181f; --surface2: #1e2028; --border: #2a2d38;
+    --accent: #4fffb0; --accent2: #ff6b35; --text: #e8eaf0; --muted: #6b7080;
+    --danger: #ff4757; --warning: #ffd32a;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'DM Mono', monospace; min-height: 100vh; }
+  body::before {
+    content: ''; position: fixed; inset: 0;
+    background-image: linear-gradient(rgba(79,255,176,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(79,255,176,0.03) 1px, transparent 1px);
+    background-size: 40px 40px; pointer-events: none; z-index: 0;
+  }
+  .app { position: relative; z-index: 1; max-width: 1100px; margin: 0 auto; padding: 32px 24px; }
+
+  header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 40px; padding-bottom: 24px; border-bottom: 1px solid var(--border); }
+  .logo { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 22px; }
+  .logo span { color: var(--accent); }
+  .status-dot { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+  .dot.connected { background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+  .dot.error { background: var(--danger); }
+
+  .tabs { display: flex; gap: 4px; margin-bottom: 28px; background: var(--surface); padding: 4px; border-radius: 10px; width: fit-content; }
+  .tab { padding: 8px 20px; border: none; background: transparent; color: var(--muted); font-family: 'DM Mono', monospace; font-size: 13px; cursor: pointer; border-radius: 7px; transition: all 0.2s; }
+  .tab.active { background: var(--surface2); color: var(--accent); border: 1px solid var(--border); }
+  .tab:hover:not(.active) { color: var(--text); }
+
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  .settings-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 28px; max-width: 560px; }
+  .settings-card h2 { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 18px; margin-bottom: 6px; }
+  .settings-card > p { font-size: 12px; color: var(--muted); margin-bottom: 24px; line-height: 1.6; }
+
+  .step { display: flex; gap: 14px; margin-bottom: 18px; }
+  .step-num { width: 26px; height: 26px; border-radius: 50%; background: var(--accent); color: #0e0f13; font-family: 'Syne', sans-serif; font-weight: 800; font-size: 13px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px; }
+  .step-content { font-size: 13px; line-height: 1.7; color: var(--text); }
+  .step-content strong { color: var(--accent); }
+  .step-content code { background: var(--surface2); border: 1px solid var(--border); padding: 2px 7px; border-radius: 4px; font-size: 12px; color: var(--accent2); }
+
+  .field { margin-bottom: 16px; }
+  .field label { display: block; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; }
+  .field input { width: 100%; background: var(--bg); border: 1px solid var(--border); color: var(--text); font-family: 'DM Mono', monospace; font-size: 13px; padding: 10px 14px; border-radius: 8px; outline: none; transition: border-color 0.2s; }
+  .field input:focus { border-color: var(--accent); }
+  .field input::placeholder { color: var(--muted); }
+
+  .divider { border: none; border-top: 1px solid var(--border); margin: 24px 0; }
+
+  .btn { display: inline-flex; align-items: center; gap: 8px; padding: 10px 20px; border-radius: 8px; font-family: 'DM Mono', monospace; font-size: 13px; cursor: pointer; border: none; transition: all 0.2s; }
+  .btn-primary { background: var(--accent); color: #0e0f13; font-weight: 500; }
+  .btn-primary:hover { background: #3de89e; transform: translateY(-1px); }
+  .btn-secondary { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+  .btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
+  .btn-danger { background: transparent; color: var(--danger); border: 1px solid var(--danger); }
+  .btn-danger:hover { background: rgba(255,71,87,0.1); }
+  .btn-sm { padding: 6px 12px; font-size: 11px; }
+
+  .toolbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; gap: 12px; flex-wrap: wrap; }
+  .toolbar-left { display: flex; align-items: center; gap: 10px; }
+  .search-box { background: var(--surface); border: 1px solid var(--border); color: var(--text); font-family: 'DM Mono', monospace; font-size: 13px; padding: 8px 14px; border-radius: 8px; outline: none; width: 220px; transition: border-color 0.2s; }
+  .search-box:focus { border-color: var(--accent); }
+  .badge { background: var(--surface2); border: 1px solid var(--border); color: var(--muted); font-size: 11px; padding: 4px 10px; border-radius: 20px; }
+
+  .table-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+  table { width: 100%; border-collapse: collapse; }
+  thead { background: var(--surface2); }
+  th { text-align: left; padding: 12px 16px; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); border-bottom: 1px solid var(--border); font-weight: 400; }
+  td { padding: 13px 16px; font-size: 13px; border-bottom: 1px solid rgba(42,45,56,0.5); vertical-align: middle; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: rgba(255,255,255,0.02); }
+  .amount { font-weight: 500; }
+  .amount.positive { color: var(--accent); }
+  .amount.negative { color: var(--danger); }
+  .mutation-id { color: var(--muted); font-size: 11px; }
+  .ticket-badge { display: inline-flex; align-items: center; gap: 5px; background: rgba(79,255,176,0.1); border: 1px solid rgba(79,255,176,0.3); color: var(--accent); font-size: 11px; padding: 3px 8px; border-radius: 4px; }
+
+  .empty-state { text-align: center; padding: 60px 20px; color: var(--muted); }
+  .empty-state .icon { font-size: 40px; margin-bottom: 12px; }
+  .empty-state p { font-size: 13px; line-height: 1.6; }
+
+  .tickets-grid { display: flex; flex-direction: column; gap: 12px; }
+  .ticket-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; transition: border-color 0.2s; animation: slideIn 0.3s ease; }
+  @keyframes slideIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+  .ticket-card:hover { border-color: rgba(79,255,176,0.3); }
+  .ticket-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 12px; gap: 12px; }
+  .ticket-meta { flex: 1; }
+  .ticket-title { font-family: 'Syne', sans-serif; font-weight: 600; font-size: 15px; margin-bottom: 4px; }
+  .ticket-sub { font-size: 11px; color: var(--muted); display: flex; gap: 12px; flex-wrap: wrap; }
+  .priority-badge { font-size: 11px; padding: 3px 10px; border-radius: 4px; flex-shrink: 0; }
+  .priority-hoog { background: rgba(255,71,87,0.15); color: var(--danger); border: 1px solid rgba(255,71,87,0.3); }
+  .priority-midden { background: rgba(255,211,42,0.1); color: var(--warning); border: 1px solid rgba(255,211,42,0.3); }
+  .priority-laag { background: rgba(107,112,128,0.15); color: var(--muted); border: 1px solid var(--border); }
+  .ticket-note { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; font-size: 13px; color: var(--text); line-height: 1.6; margin-bottom: 12px; white-space: pre-wrap; }
+  .ticket-note.placeholder { color: var(--muted); font-style: italic; }
+  .ticket-actions { display: flex; gap: 8px; }
+
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(4px); z-index: 100; display: flex; align-items: center; justify-content: center; padding: 20px; }
+  .modal { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 32px; width: 100%; max-width: 500px; animation: scaleIn 0.2s ease; }
+  @keyframes scaleIn { from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  .modal h3 { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 18px; margin-bottom: 6px; }
+  .modal .mutation-ref { font-size: 12px; color: var(--muted); margin-bottom: 20px; }
+  .modal textarea { width: 100%; background: var(--bg); border: 1px solid var(--border); color: var(--text); font-family: 'DM Mono', monospace; font-size: 13px; padding: 12px 14px; border-radius: 8px; outline: none; resize: vertical; min-height: 100px; line-height: 1.6; transition: border-color 0.2s; margin-bottom: 12px; }
+  .modal textarea:focus { border-color: var(--accent); }
+  .modal-footer { display: flex; gap: 10px; justify-content: flex-end; margin-top: 16px; }
+
+  .priority-select { display: flex; gap: 8px; margin-bottom: 16px; }
+  .priority-option { flex: 1; padding: 8px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); color: var(--muted); font-family: 'DM Mono', monospace; font-size: 12px; cursor: pointer; text-align: center; transition: all 0.15s; }
+  .priority-option.selected-hoog { border-color: var(--danger); color: var(--danger); background: rgba(255,71,87,0.1); }
+  .priority-option.selected-midden { border-color: var(--warning); color: var(--warning); background: rgba(255,211,42,0.08); }
+  .priority-option.selected-laag { border-color: var(--muted); color: var(--text); background: var(--surface2); }
+
+  .loading { display: flex; align-items: center; justify-content: center; gap: 12px; padding: 40px; color: var(--muted); font-size: 13px; }
+  .spinner { width: 20px; height: 20px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .notification { position: fixed; bottom: 24px; right: 24px; background: var(--surface2); border: 1px solid var(--accent); color: var(--accent); padding: 12px 20px; border-radius: 10px; font-size: 13px; z-index: 200; animation: slideUp 0.3s ease; }
+  .notification.err { border-color: var(--danger); color: var(--danger); }
+  @keyframes slideUp { from { transform: translateY(10px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="logo">Boek<span>Ticket</span></div>
+    <div class="status-dot">
+      <div class="dot" id="statusDot"></div>
+      <span id="statusText">Niet verbonden</span>
+    </div>
+  </header>
+
+  <div class="tabs">
+    <button class="tab active" onclick="showTab('mutaties',this)">📊 Mutaties</button>
+    <button class="tab" onclick="showTab('tickets',this)">🎫 Tickets</button>
+    <button class="tab" onclick="showTab('instellingen',this)">⚙️ Instellingen</button>
+  </div>
+
+  <!-- MUTATIES -->
+  <div class="panel active" id="panel-mutaties">
+    <div class="toolbar">
+      <div class="toolbar-left">
+        <input class="search-box" id="searchBox" type="text" placeholder="Zoek mutatie..." oninput="filterMutaties()">
+        <span class="badge" id="countBadge">0 mutaties</span>
+      </div>
+      <button class="btn btn-primary" onclick="laadMutaties()">↻ Ververs</button>
+    </div>
+    <div class="table-wrap">
+      <div id="mutatiesContent">
+        <div class="empty-state">
+          <div class="icon">🔌</div>
+          <p>Volg de stappen bij <strong>⚙️ Instellingen</strong><br>om je mutaties op te halen.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TICKETS -->
+  <div class="panel" id="panel-tickets">
+    <div class="toolbar">
+      <div class="toolbar-left">
+        <span class="badge" id="ticketCountBadge">0 tickets</span>
+      </div>
+    </div>
+    <div class="tickets-grid" id="ticketsGrid"></div>
+  </div>
+
+  <!-- INSTELLINGEN -->
+  <div class="panel" id="panel-instellingen">
+    <div class="settings-card">
+      <h2>Instellen via Vercel</h2>
+      <p>Volg deze stappen eenmalig om de app online te zetten. Daarna werkt alles automatisch.</p>
+
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-content">
+          Maak een gratis account op <strong>vercel.com</strong> (inloggen met GitHub werkt het makkelijkst — maak ook een gratis GitHub-account als je die nog niet hebt).
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-content">
+          Download het <strong>ZIP-bestand</strong> dat je van mij hebt gekregen en pak het uit op je computer.
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-content">
+          Ga naar <strong>vercel.com/new</strong> → kies <em>"Import Git Repository"</em> of sleep de uitgepakte map direct naar het Vercel-venster.
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">4</div>
+        <div class="step-content">
+          Tijdens het importeren zie je een stap <em>"Environment Variables"</em>. Voeg toe:<br>
+          Naam: <code>EBOEKHOUDEN_TOKEN</code><br>
+          Waarde: <em>jouw API-token van e-boekhouden.nl</em>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">5</div>
+        <div class="step-content">
+          Klik op <strong>Deploy</strong>. Na ~1 minuut krijg je een link zoals <code>boekticket.vercel.app</code> — dat is jouw persoonlijke app!
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">6</div>
+        <div class="step-content">
+          Open die link, ga naar ⚙️ Instellingen en klik <strong>"Verbinden via server"</strong>. Je mutaties verschijnen dan direct.
+        </div>
+      </div>
+
+      <hr class="divider">
+
+      <p style="font-size:12px;color:var(--muted);margin-bottom:16px;">Al gedeployed op Vercel? Vul hier je eigen Vercel-URL in:</p>
+      <div class="field">
+        <label>Jouw Vercel URL</label>
+        <input type="text" id="proxyUrl" placeholder="https://boekticket.vercel.app">
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;">
+        <button class="btn btn-primary" onclick="verbindViaProxy()">⚡ Verbinden via server</button>
+        <button class="btn btn-secondary" onclick="laadDemoData()">▶ Demo-data</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal -->
+<div class="modal-overlay" id="modalOverlay" style="display:none" onclick="sluitModal(event)">
+  <div class="modal" onclick="event.stopPropagation()">
+    <h3 id="modalTitle">Ticket aanmaken</h3>
+    <div class="mutation-ref" id="modalRef"></div>
+    <div class="field">
+      <label>Onderwerp</label>
+      <input type="text" id="ticketSubject" placeholder="Bijv: Controleer deze betaling">
+    </div>
+    <label style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:8px;">Prioriteit</label>
+    <div class="priority-select">
+      <div class="priority-option selected-laag" onclick="selectPriority('laag')" id="prio-laag">Laag</div>
+      <div class="priority-option" onclick="selectPriority('midden')" id="prio-midden">Midden</div>
+      <div class="priority-option" onclick="selectPriority('hoog')" id="prio-hoog">Hoog</div>
+    </div>
+    <div class="field">
+      <label>Opmerking / Todo</label>
+      <textarea id="ticketNote" placeholder="Schrijf hier je opmerking of todo..."></textarea>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="sluitModalDirect()">Annuleren</button>
+      <button class="btn btn-primary" onclick="slaTicketOp()">✓ Opslaan</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let instellingen = JSON.parse(localStorage.getItem('bt_settings') || '{}');
+let tickets = JSON.parse(localStorage.getItem('bt_tickets') || '[]');
+let mutaties = [];
+let huidigeMutatie = null, huidigPrio = 'laag', bewerkTicketId = null;
+
+window.onload = () => {
+  if (instellingen.proxyUrl) {
+    document.getElementById('proxyUrl').value = instellingen.proxyUrl;
+    laadMutaties();
+  }
+  renderTickets();
+};
+
+function showTab(naam, el) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('panel-' + naam).classList.add('active');
+  if (el) el.classList.add('active');
+}
+
+function updateStatus(ok, tekst) {
+  document.getElementById('statusDot').className = 'dot ' + (ok ? 'connected' : 'error');
+  document.getElementById('statusText').textContent = tekst;
+}
+
+function verbindViaProxy() {
+  const url = document.getElementById('proxyUrl').value.trim().replace(/\/$/, '');
+  if (!url.startsWith('http')) { toonNotificatie('⚠️ Vul een geldige URL in', true); return; }
+  instellingen.proxyUrl = url;
+  localStorage.setItem('bt_settings', JSON.stringify(instellingen));
+  laadMutaties();
+}
+
+async function laadMutaties() {
+  if (!instellingen.proxyUrl) { laadDemoData(); return; }
+
+  const content = document.getElementById('mutatiesContent');
+  content.innerHTML = '<div class="loading"><div class="spinner"></div>Mutaties ophalen...</div>';
+
+  try {
+    const resp = await fetch(`${instellingen.proxyUrl}/api/mutations?limit=100&offset=0`);
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({}));
+      throw new Error(err.error || `HTTP ${resp.status}`);
+    }
+    const data = await resp.json();
+    const items = data.items || data.mutations || (Array.isArray(data) ? data : []);
+
+    mutaties = items.map(m => ({
+      id: String(m.id || m.mutationId || ''),
+      datum: (m.date || m.datum || '').substring(0, 10),
+      omschrijving: m.description || m.omschrijving || '(geen omschrijving)',
+      bedrag: parseFloat(m.amount || m.bedrag || 0),
+    }));
+
+    updateStatus(true, 'Verbonden via Vercel');
+    renderMutaties();
+    toonNotificatie(`✓ ${mutaties.length} mutaties geladen`);
+    showTab('mutaties', document.querySelector('.tab'));
+
+  } catch (e) {
+    content.innerHTML = `<div class="empty-state"><div class="icon">⚠️</div><p><strong>Verbinding mislukt</strong><br><span style="color:var(--danger);font-size:12px">${e.message}</span><br><br>Controleer je Vercel URL of gebruik <strong>Demo-data</strong>.</p></div>`;
+    updateStatus(false, 'Verbindingsfout');
+  }
+}
+
+function laadDemoData() {
+  mutaties = [
+    { id: 'MUT-2024-001', datum: '2024-01-15', omschrijving: 'Betaling Leverancier BV – Factuur 2024-089', bedrag: -2450.00 },
+    { id: 'MUT-2024-002', datum: '2024-01-18', omschrijving: 'Ontvangst Klant De Jong Holding', bedrag: 5800.00 },
+    { id: 'MUT-2024-003', datum: '2024-01-22', omschrijving: 'Automatische incasso Belastingdienst BTW', bedrag: -1890.00 },
+    { id: 'MUT-2024-004', datum: '2024-01-25', omschrijving: 'Storting eigen inbreng aandeelhouder', bedrag: 10000.00 },
+    { id: 'MUT-2024-005', datum: '2024-02-01', omschrijving: 'Betaling huur kantoorpand feb 2024', bedrag: -1500.00 },
+    { id: 'MUT-2024-006', datum: '2024-02-05', omschrijving: 'Onbekende bijschrijving – nader te onderzoeken', bedrag: 340.00 },
+    { id: 'MUT-2024-007', datum: '2024-02-08', omschrijving: 'Abonnement software licenties', bedrag: -299.00 },
+    { id: 'MUT-2024-008', datum: '2024-02-12', omschrijving: 'Creditnota Leverancier BV – retour goederen', bedrag: 450.00 },
+  ];
+  updateStatus(true, 'Demo-modus');
+  renderMutaties();
+  toonNotificatie('▶ Demo-data geladen');
+  showTab('mutaties', document.querySelector('.tab'));
+}
+
+function renderMutaties(data) {
+  const lijst = data || mutaties;
+  const content = document.getElementById('mutatiesContent');
+  document.getElementById('countBadge').textContent = `${lijst.length} mutaties`;
+  if (!lijst.length) { content.innerHTML = '<div class="empty-state"><div class="icon">📭</div><p>Geen mutaties gevonden.</p></div>'; return; }
+
+  const rows = lijst.map(m => {
+    const heeftTicket = tickets.find(t => t.mutatieId === m.id);
+    const pos = m.bedrag >= 0;
+    return `<tr>
+      <td><span class="mutation-id">${m.id}</span></td>
+      <td>${m.datum}</td>
+      <td>${m.omschrijving}</td>
+      <td class="amount ${pos ? 'positive' : 'negative'}">€ ${(pos?'+':'') + m.bedrag.toFixed(2).replace('.',',')}</td>
+      <td>${heeftTicket
+        ? `<span class="ticket-badge">🎫 ${heeftTicket.subject}</span>`
+        : `<button class="btn btn-secondary btn-sm" onclick='openNieuwTicket(${JSON.stringify(m)})'>+ Ticket</button>`
+      }</td>
+    </tr>`;
+  }).join('');
+
+  content.innerHTML = `<table><thead><tr><th>ID</th><th>Datum</th><th>Omschrijving</th><th>Bedrag</th><th>Ticket</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+function filterMutaties() {
+  const q = document.getElementById('searchBox').value.toLowerCase();
+  renderMutaties(mutaties.filter(m => m.omschrijving.toLowerCase().includes(q) || m.id.toLowerCase().includes(q) || m.datum.includes(q)));
+}
+
+function openNieuwTicket(m) {
+  huidigeMutatie = m; bewerkTicketId = null;
+  document.getElementById('modalTitle').textContent = 'Ticket aanmaken';
+  document.getElementById('modalRef').textContent = `📎 ${m.id} — ${m.omschrijving}`;
+  document.getElementById('ticketSubject').value = '';
+  document.getElementById('ticketNote').value = '';
+  selectPriority('laag');
+  document.getElementById('modalOverlay').style.display = 'flex';
+}
+
+function openBewerkTicket(id) {
+  const t = tickets.find(x => x.id === id); if (!t) return;
+  bewerkTicketId = id;
+  huidigeMutatie = { id: t.mutatieId, omschrijving: t.mutatieOmschrijving };
+  document.getElementById('modalTitle').textContent = 'Ticket bewerken';
+  document.getElementById('modalRef').textContent = `📎 ${t.mutatieId} — ${t.mutatieOmschrijving}`;
+  document.getElementById('ticketSubject').value = t.subject || '';
+  document.getElementById('ticketNote').value = t.note || '';
+  selectPriority(t.priority || 'laag');
+  document.getElementById('modalOverlay').style.display = 'flex';
+}
+
+function sluitModal(e) { if (e.target.id === 'modalOverlay') sluitModalDirect(); }
+function sluitModalDirect() { document.getElementById('modalOverlay').style.display = 'none'; }
+
+function selectPriority(p) {
+  huidigPrio = p;
+  ['laag','midden','hoog'].forEach(x => {
+    document.getElementById('prio-'+x).className = 'priority-option' + (x === p ? ` selected-${x}` : '');
+  });
+}
+
+function slaTicketOp() {
+  const subject = document.getElementById('ticketSubject').value.trim();
+  const note = document.getElementById('ticketNote').value.trim();
+  if (!subject) { toonNotificatie('⚠️ Vul een onderwerp in', true); return; }
+
+  if (bewerkTicketId) {
+    const idx = tickets.findIndex(t => t.id === bewerkTicketId);
+    tickets[idx] = { ...tickets[idx], subject, note, priority: huidigPrio, gewijzigd: new Date().toLocaleString('nl-NL') };
+    toonNotificatie('✓ Ticket bijgewerkt');
+  } else {
+    tickets.push({ id: 'TKT-'+Date.now(), mutatieId: huidigeMutatie.id, mutatieOmschrijving: huidigeMutatie.omschrijving, subject, note, priority: huidigPrio, aangemaakt: new Date().toLocaleString('nl-NL') });
+    toonNotificatie('✓ Ticket aangemaakt');
+  }
+  localStorage.setItem('bt_tickets', JSON.stringify(tickets));
+  sluitModalDirect(); renderTickets(); renderMutaties();
+}
+
+function verwijderTicket(id) {
+  if (!confirm('Weet je zeker dat je dit ticket wilt verwijderen?')) return;
+  tickets = tickets.filter(t => t.id !== id);
+  localStorage.setItem('bt_tickets', JSON.stringify(tickets));
+  renderTickets(); renderMutaties();
+  toonNotificatie('🗑 Ticket verwijderd');
+}
+
+function renderTickets() {
+  const grid = document.getElementById('ticketsGrid');
+  document.getElementById('ticketCountBadge').textContent = `${tickets.length} ticket${tickets.length !== 1 ? 's' : ''}`;
+  if (!tickets.length) {
+    grid.innerHTML = `<div class="empty-state"><div class="icon">🎫</div><p>Nog geen tickets.<br>Ga naar <strong>Mutaties</strong> en klik "+ Ticket".</p></div>`;
+    return;
+  }
+  grid.innerHTML = tickets.map(t => `
+    <div class="ticket-card">
+      <div class="ticket-header">
+        <div class="ticket-meta">
+          <div class="ticket-title">${t.subject}</div>
+          <div class="ticket-sub"><span>📎 ${t.mutatieId}</span><span>🕐 ${t.aangemaakt}</span>${t.gewijzigd?`<span>✏️ ${t.gewijzigd}</span>`:''}</div>
+        </div>
+        <span class="priority-badge priority-${t.priority}">${t.priority}</span>
+      </div>
+      ${t.note ? `<div class="ticket-note">${t.note}</div>` : `<div class="ticket-note placeholder">Geen opmerking</div>`}
+      <div class="ticket-actions">
+        <button class="btn btn-secondary btn-sm" onclick="openBewerkTicket('${t.id}')">✏️ Bewerken</button>
+        <button class="btn btn-danger btn-sm" onclick="verwijderTicket('${t.id}')">🗑 Verwijder</button>
+      </div>
+    </div>`).join('');
+}
+
+function toonNotificatie(tekst, isErr) {
+  const el = document.createElement('div');
+  el.className = 'notification' + (isErr ? ' err' : '');
+  el.textContent = tekst;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 2800);
+}
+</script>
+</body>
+</html>
