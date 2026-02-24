@@ -24,7 +24,10 @@ module.exports = async function handler(req, res) {
 
   try {
     // Stap 1: sessie aanmaken
-    const sessionBody = JSON.stringify({ accessToken: token, source: 'BoekTicket-nieuw' });
+ const sessionBody = JSON.stringify({ accessToken: token, source: 'BoekTicket' });
+// debug
+res.status(200).json({ tokenLength: token.length, tokenStart: token.substring(0, 4) });
+return;
     const sessionRes = await doRequest({
       hostname: 'api.e-boekhouden.nl',
       path: '/v1/session',
