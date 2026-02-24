@@ -1,6 +1,19 @@
 const https = require('https');
 
-module.exports = function handler(req, res) {
+function doRequest(options, body) {
+  return new Promise(function(resolve, reject) {
+    const req = https.request(options, function(res) {
+      var data = '';
+      res.on('data', function(chunk) { data += chunk; });
+      res.on('end', function() { resolve({ status: res.statusCode, body: data }); });
+    });
+    req.on('error', reject);
+    if (body) req.write(body);
+    req.end();
+  });
+}
+
+module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
 
   const token = process.env.EBOEKHOUDEN_TOKEN;
@@ -9,37 +22,41 @@ module.exports = function handler(req, res) {
     return;
   }
 
-  const options = {
-    hostname: 'api.e-boekhouden.nl',
-    path: '/v1/mutations?limit=100&offset=0',
-    method: 'GET',
-    headers: {
-      'Authorization': 'Bearer ' + token,
-      'Accept': 'application/json',
-      'X-Source': 'BoekTicket'
+  try {
+    // Stap 1: sessie aanmaken
+    const sessionBody = JSON.stringify({ accessToken: token, source: 'BoekTicket' });
+    const sessionRes = await doRequest({
+      hostname: 'api.e-boekhouden.nl',
+      path: '/v1/session',
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(sessionBody)
+      }
+    }, sessionBody);
+
+    const session = JSON.parse(sessionRes.body);
+    const sessionToken = session.sessionToken;
+
+    if (!sessionToken) {
+      res.status(500).json({ error: 'Geen sessie token', details: session });
+      return;
     }
-  };
 
-  const request = https.request(options, function(response) {
-    var body = '';
-    response.on('data', function(chunk) { body += chunk; });
-    response.on('end', function() {
-      res.setHeader('Content-Type', 'application/json');
-      if (!body || body.trim() === '') {
-        res.status(500).json({ error: 'Leeg antwoord', statusCode: response.statusCode, headers: response.headers });
-        return;
+    // Stap 2: mutaties ophalen
+    const mutRes = await doRequest({
+      hostname: 'api.e-boekhouden.nl',
+      path: '/v1/mutations?limit=100&offset=0',
+      method: 'GET',
+      headers: {
+        'Authorization': sessionToken,
+        'Accept': 'application/json'
       }
-      try {
-        res.status(response.statusCode).json(JSON.parse(body));
-      } catch(e) {
-        res.status(500).json({ error: 'Parse fout', raw: body.substring(0, 500) });
-      }
-    });
-  });
+    }, null);
 
-  request.on('error', function(err) {
-    res.status(500).json({ error: err.message });
-  });
+    res.status(mutRes.status).json(JSON.parse(mutRes.body));
 
-  request.end();
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
 };
