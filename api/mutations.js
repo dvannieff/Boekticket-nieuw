@@ -36,7 +36,7 @@ module.exports = async function handler(req, res) {
     }, sessionBody);
 
     const session = JSON.parse(sessionRes.body);
-    const sessionToken = session.sessionToken;
+    const sessionToken = session.token;
 
     if (!sessionToken) {
       res.status(500).json({ error: 'Geen sessie token', details: session });
