@@ -15,7 +15,8 @@ module.exports = function handler(req, res) {
     method: 'GET',
     headers: {
       'Authorization': 'Bearer ' + token,
-      'Accept': 'application/json'
+      'Accept': 'application/json',
+      'X-Source': 'BoekTicket'
     }
   };
 
@@ -23,10 +24,15 @@ module.exports = function handler(req, res) {
     var body = '';
     response.on('data', function(chunk) { body += chunk; });
     response.on('end', function() {
+      res.setHeader('Content-Type', 'application/json');
+      if (!body || body.trim() === '') {
+        res.status(500).json({ error: 'Leeg antwoord', statusCode: response.statusCode, headers: response.headers });
+        return;
+      }
       try {
-        res.status(200).json(JSON.parse(body));
+        res.status(response.statusCode).json(JSON.parse(body));
       } catch(e) {
-        res.status(500).json({ error: 'Parse fout', raw: body });
+        res.status(500).json({ error: 'Parse fout', raw: body.substring(0, 500) });
       }
     });
   });
