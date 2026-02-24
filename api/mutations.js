@@ -59,5 +59,4 @@ module.exports = async function handler(req, res) {
 
     console.error('Proxy fout:', err);
     return res.status(500).json({ error: 'Serverfout: ' + err.message });
-  }
 }
