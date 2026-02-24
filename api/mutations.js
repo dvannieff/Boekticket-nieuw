@@ -46,7 +46,7 @@ module.exports = async function handler(req, res) {
     // Stap 2: mutaties ophalen
     const mutRes = await doRequest({
       hostname: 'api.e-boekhouden.nl',
-      path: '/v1/mutations?limit=100&offset=0',
+      path: '/v1/mutation?limit=100&offset=0',
       method: 'GET',
       headers: {
         'Authorization': sessionToken,
