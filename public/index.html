@@ -192,8 +192,21 @@
 let instellingen = JSON.parse(localStorage.getItem('bt_settings') || '{}');
 let tickets = JSON.parse(localStorage.getItem('bt_tickets') || '[]');
 let statussen = JSON.parse(localStorage.getItem('bt_statussen') || '["Open","In behandeling","Afgerond"]');
+let ticketTeller = parseInt(localStorage.getItem('bt_teller') || '0');
 let mutaties = [];
 let huidigeMutatie = null, huidigPrio = 'laag', bewerkTicketId = null, ticketFilter = 'alle';
+
+function volgendTicketNummer() {
+  ticketTeller++;
+  localStorage.setItem('bt_teller', String(ticketTeller));
+  return 'TKT-' + String(ticketTeller).padStart(4, '0');
+}
+
+function formatDatum(d) {
+  const dt = new Date(d);
+  if (isNaN(dt)) return d;
+  return dt.toLocaleDateString('nl-NL', {day:'2-digit',month:'2-digit',year:'numeric'}) + ' ' + dt.toLocaleTimeString('nl-NL', {hour:'2-digit',minute:'2-digit'});
+}
 
 window.onload = () => {
   if (instellingen.proxyUrl) { document.getElementById('proxyUrl').value = instellingen.proxyUrl; laadMutaties(); }
@@ -257,7 +270,7 @@ function renderMutaties(data) {
   const rows = lijst.map(m => {
     const mt = tickets.filter(t => t.mutatieId === m.id);
     const pos = m.bedrag >= 0;
-    const pills = mt.map(t => '<div class="ticket-pill" onclick="openBewerkTicket(\'' + t.id + '\')"><span class="pill-name">🎫 ' + (t.subject.length > 20 ? t.subject.substring(0,20)+'…' : t.subject) + '</span><span class="pill-status"> · ' + (t.status || statussen[0]) + '</span></div>').join('');
+    const pills = mt.map(t => '<div class="ticket-pill" onclick="openBewerkTicket(\'' + t.id + '\')"><span class="pill-name">🎫 <strong>' + t.id + '</strong> ' + (t.subject.length > 18 ? t.subject.substring(0,18)+'…' : t.subject) + '</span><span class="pill-status"> · ' + (t.status || statussen[0]) + ' · ' + formatDatum(t.aangemaaktISO || t.aangemaakt) + '</span></div>').join('');
     return '<tr><td><span class="mutation-id">' + m.id + '</span></td><td style="white-space:nowrap">' + m.datum + '</td><td>' + m.omschrijving + '</td><td class="amount ' + (pos?'positive':'negative') + '" style="white-space:nowrap">€ ' + (pos?'+':'') + m.bedrag.toFixed(2).replace('.',',') + '</td><td><div class="ticket-stack">' + pills + '<button class="btn btn-secondary btn-sm" onclick=\'openNieuwTicket(' + JSON.stringify(m) + ')\' style="align-self:flex-start;' + (mt.length?'margin-top:4px':'') + '">+ Ticket</button></div></td></tr>';
   }).join('');
   content.innerHTML = '<table><thead><tr><th>ID</th><th>Datum</th><th>Omschrijving</th><th>Bedrag</th><th>Tickets</th></tr></thead><tbody>' + rows + '</tbody></table>';
@@ -309,7 +322,7 @@ function openNieuwTicket(m) {
 function openBewerkTicket(id) {
   const t = tickets.find(x => x.id === id); if (!t) return;
   bewerkTicketId = id; huidigeMutatie = { id: t.mutatieId, omschrijving: t.mutatieOmschrijving };
-  document.getElementById('modalTitle').textContent = 'Ticket bewerken';
+  document.getElementById('modalTitle').textContent = 'Ticket bewerken · ' + t.id;
   document.getElementById('modalRef').textContent = '📎 ' + t.mutatieId + ' — ' + t.mutatieOmschrijving;
   document.getElementById('ticketSubject').value = t.subject || '';
   document.getElementById('ticketNote').value = t.note || '';
@@ -335,7 +348,7 @@ function slaTicketOp() {
     tickets[idx] = { ...tickets[idx], subject, note, priority: huidigPrio, status, gewijzigd: new Date().toLocaleString('nl-NL') };
     toonNotificatie('✓ Ticket bijgewerkt');
   } else {
-    tickets.push({ id: 'TKT-'+Date.now(), mutatieId: huidigeMutatie.id, mutatieOmschrijving: huidigeMutatie.omschrijving, subject, note, priority: huidigPrio, status, aangemaakt: new Date().toLocaleString('nl-NL') });
+    tickets.push({ id: volgendTicketNummer(), mutatieId: huidigeMutatie.id, mutatieOmschrijving: huidigeMutatie.omschrijving, subject, note, priority: huidigPrio, status, aangemaaktISO: new Date().toISOString() });
     toonNotificatie('✓ Ticket aangemaakt');
   }
   localStorage.setItem('bt_tickets', JSON.stringify(tickets));
@@ -363,7 +376,7 @@ function renderTickets() {
     grid.innerHTML = '<div class="empty-state"><div class="icon">🎫</div><p>' + (tickets.length === 0 ? 'Nog geen tickets.<br>Ga naar <strong>Mutaties</strong> en klik "+ Ticket".' : 'Geen tickets met deze status.') + '</p></div>';
     return;
   }
-  grid.innerHTML = gefilterd.map(t => '<div class="ticket-card"><div class="ticket-header"><div class="ticket-meta"><div class="ticket-title">' + t.subject + '</div><div class="ticket-sub"><span>📎 ' + t.mutatieId + '</span><span>🕐 ' + t.aangemaakt + '</span>' + (t.gewijzigd ? '<span>✏️ ' + t.gewijzigd + '</span>' : '') + '</div><div class="ticket-badges"><span class="priority-badge priority-' + t.priority + '">' + t.priority + '</span><span class="status-badge">' + (t.status || statussen[0]) + '</span></div></div></div>' + (t.note ? '<div class="ticket-note">' + t.note + '</div>' : '<div class="ticket-note placeholder">Geen opmerking</div>') + '<div class="ticket-actions"><button class="btn btn-secondary btn-sm" onclick="openBewerkTicket(\'' + t.id + '\')">✏️ Bewerken</button><button class="btn btn-danger btn-sm" onclick="verwijderTicket(\'' + t.id + '\')">🗑 Verwijder</button></div></div>').join('');
+  grid.innerHTML = gefilterd.map(t => '<div class="ticket-card"><div class="ticket-header"><div class="ticket-meta"><div class="ticket-title">' + t.subject + '</div><div class="ticket-sub"><span style="color:var(--accent);font-weight:500">' + t.id + '</span><span>📎 ' + t.mutatieId + '</span><span>🕐 ' + formatDatum(t.aangemaaktISO || t.aangemaakt) + '</span>' + (t.gewijzigd ? '<span>✏️ ' + t.gewijzigd + '</span>' : '') + '</div><div class="ticket-badges"><span class="priority-badge priority-' + t.priority + '">' + t.priority + '</span><span class="status-badge">' + (t.status || statussen[0]) + '</span></div></div></div>' + (t.note ? '<div class="ticket-note">' + t.note + '</div>' : '<div class="ticket-note placeholder">Geen opmerking</div>') + '<div class="ticket-actions"><button class="btn btn-secondary btn-sm" onclick="openBewerkTicket(\'' + t.id + '\')">✏️ Bewerken</button><button class="btn btn-danger btn-sm" onclick="verwijderTicket(\'' + t.id + '\')">🗑 Verwijder</button></div></div>').join('');
 }
 
 function toonNotificatie(tekst, isErr) {
