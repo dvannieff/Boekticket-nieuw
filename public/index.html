@@ -375,7 +375,7 @@ async function openNieuwTicket(m) {
   // Tegenrekening ophalen op de achtergrond
   if (instellingen.proxyUrl && m.id && !m.id.startsWith('MUT-')) {
     try {
-      const resp = await fetch(instellingen.proxyUrl + '/api/mutation?id=' + m.id);
+      const resp = await fetch(instellingen.proxyUrl + '/api/mutation?id=' + parseInt(m.id));
       const detail = await resp.json();
       if (detail.rows && detail.rows.length > 0) {
         const tegenId = detail.rows[0].ledgerId;
