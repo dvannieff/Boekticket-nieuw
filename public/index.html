@@ -373,7 +373,7 @@ async function openNieuwTicket(m) {
   document.getElementById('modalOverlay').style.display = 'flex';
 
   // Tegenrekening ophalen op de achtergrond
-  if (instellingen.proxyUrl && m.id && !m.id.startsWith('MUT-')) {
+  if (instellingen.proxyUrl && m.id && !String(m.id).startsWith('MUT-')) {
     try {
       console.log('Ophalen tegenrekening voor id:', m.id, parseInt(m.id), instellingen.proxyUrl);
       const resp = await fetch(instellingen.proxyUrl + '/api/mutationdetail?id=' + parseInt(m.id));
