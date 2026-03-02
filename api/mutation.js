@@ -19,7 +19,7 @@ module.exports = async function handler(req, res) {
   const token = process.env.EBOEKHOUDEN_TOKEN;
   if (!token) { res.status(500).json({ error: 'Token ontbreekt' }); return; }
 
-  const id = req.query.id;
+  const id = parseInt(req.query.id);
   if (!id) { res.status(400).json({ error: 'id parameter vereist' }); return; }
 
   try {
