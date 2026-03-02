@@ -290,8 +290,8 @@ async function laadMutaties() {
       datum: (m.date || '').substring(0, 10),
       omschrijving: m.description || m.invoiceNumber || '(geen omschrijving)',
       bedrag: parseFloat(m.amount != null ? m.amount : 0),
-      rekening: String(m.ledgerId || m.ledgerAccount || ''),
-      tegenrekening: String(m.counterLedgerId || m.counterAccount || m.counterLedger || ''),
+      rekening: String(m.ledgerCode || m.ledgerId || ''),
+      tegenrekening: String(m.counterLedgerCode || m.counterLedgerId || ''),
       type: m.type != null ? m.type : '',
       entryNumber: m.entryNumber || '',
     }));
@@ -327,7 +327,7 @@ function renderMutaties(data) {
     const pills = mt.map(t => '<div class="ticket-pill" onclick="openBewerkTicket(\'' + t.id + '\')"><span class="pill-name">🎫 <strong>' + t.id + '</strong> ' + (t.subject.length > 18 ? t.subject.substring(0,18)+'…' : t.subject) + '</span><span class="pill-status"> · ' + (t.status || statussen[0]) + ' · ' + formatDatum(t.aangemaaktISO || t.aangemaakt) + '</span></div>').join('');
     return '<tr><td><span class="mutation-id">' + m.id + '</span></td><td style="white-space:nowrap">' + m.datum + '</td><td>' + m.omschrijving + '</td><td style="font-size:11px;color:var(--muted)">' + (m.rekening||'—') + '</td><td style="font-size:11px;color:var(--muted)">' + (m.tegenrekening||'—') + '</td><td class="amount ' + (pos?'positive':'negative') + '" style="white-space:nowrap">€ ' + (pos?'+':'') + m.bedrag.toFixed(2).replace('.',',') + '</td><td><div class="ticket-stack">' + pills + '<button class="btn btn-secondary btn-sm" onclick=\'openNieuwTicket(' + JSON.stringify(m) + ')\' style="align-self:flex-start;' + (mt.length?'margin-top:4px':'') + '">+ Ticket</button></div></td></tr>';
   }).join('');
-  content.innerHTML = '<table><thead><tr><th>ID</th><th>Datum</th><th>Omschrijving</th><th>Rekening</th><th>Tegenrekening</th><th>Bedrag</th><th>Tickets</th></tr></thead><tbody>' + rows + '</tbody></table>';
+  content.innerHTML = '<table><thead><tr><th>ID</th><th>Datum</th><th>Factuurnummer</th><th>Rekening</th><th>Tegenrekening</th><th>Bedrag</th><th>Tickets</th></tr></thead><tbody>' + rows + '</tbody></table>';
 }
 
 function filterMutaties() {
