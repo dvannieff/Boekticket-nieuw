@@ -394,7 +394,7 @@ async function openNieuwTicket(m) {
   }
 }
 
-function openBewerkTicket(id) {
+async function openBewerkTicket(id) {
   const t = tickets.find(x => x.id === id); if (!t) return;
   bewerkTicketId = id; huidigeMutatie = { id: t.mutatieId, omschrijving: t.mutatieOmschrijving };
   document.getElementById('modalTitle').textContent = 'Ticket bewerken · ' + t.id;
@@ -403,6 +403,21 @@ function openBewerkTicket(id) {
   document.getElementById('ticketNote').value = t.note || '';
   selectPriority(t.priority || 'laag'); vulStatusDropdown(t.status || statussen[0]);
   document.getElementById('modalOverlay').style.display = 'flex';
+
+  // Tegenrekening ophalen
+  const mutatieId = parseInt(t.mutatieId);
+  if (instellingen.proxyUrl && mutatieId) {
+    try {
+      const resp = await fetch(instellingen.proxyUrl + '/api/mutationdetail?id=' + mutatieId);
+      const detail = JSON.parse(await resp.text());
+      if (detail.rows && detail.rows.length > 0) {
+        const tegenId = detail.rows[0].ledgerId;
+        const tegenCode = window.ledgerMap ? (window.ledgerMap[tegenId] || String(tegenId)) : String(tegenId);
+        const rekening = mutaties.find(m => m.id === t.mutatieId);
+        document.getElementById('modalRef').textContent = '📎 ' + t.mutatieId + ' — ' + t.mutatieOmschrijving + ' | rekening: ' + (rekening ? rekening.rekening : '?') + ' / ' + tegenCode;
+      }
+    } catch(e) { console.log('Tegenrekening ophalen mislukt:', e); }
+  }
 }
 
 function sluitModal(e) { if (e.target.id === 'modalOverlay') sluitModalDirect(); }
