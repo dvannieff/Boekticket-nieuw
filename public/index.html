@@ -152,6 +152,21 @@
         </div>
       </div>
       <div class="settings-card">
+        <h2>🔢 Ticketnummering</h2>
+        <p>Stel het prefix en startnummer in. Nieuwe tickets tellen automatisch op.</p>
+        <div style="display:flex;gap:12px;flex-wrap:wrap;">
+          <div class="field" style="flex:1;min-width:120px">
+            <label>Prefix</label>
+            <input type="text" id="tktPrefix" placeholder="TKT">
+          </div>
+          <div class="field" style="flex:1;min-width:120px">
+            <label>Volgend nummer</label>
+            <input type="number" id="tktStartnummer" min="1" placeholder="1">
+          </div>
+        </div>
+        <button class="btn btn-secondary btn-sm" onclick="slaNummeringOp()">✓ Opslaan</button>
+      </div>
+      <div class="settings-card">
         <h2>🏷️ Statussen beheren</h2>
         <p>Voeg statussen toe of verwijder ze. Vergeet niet op <strong>Opslaan</strong> te klikken.</p>
         <div class="status-list" id="statusList"></div>
@@ -196,10 +211,24 @@ let ticketTeller = parseInt(localStorage.getItem('bt_teller') || '0');
 let mutaties = [];
 let huidigeMutatie = null, huidigPrio = 'laag', bewerkTicketId = null, ticketFilter = 'alle';
 
+function tktPrefix() {
+  return (localStorage.getItem('bt_prefix') || 'TKT') + '-';
+}
+
 function volgendTicketNummer() {
   ticketTeller++;
   localStorage.setItem('bt_teller', String(ticketTeller));
-  return 'TKT-' + String(ticketTeller).padStart(4, '0');
+  return tktPrefix() + String(ticketTeller).padStart(4, '0');
+}
+
+function slaNummeringOp() {
+  const prefix = document.getElementById('tktPrefix').value.trim() || 'TKT';
+  const start = parseInt(document.getElementById('tktStartnummer').value) || 1;
+  localStorage.setItem('bt_prefix', prefix);
+  ticketTeller = start - 1;
+  localStorage.setItem('bt_teller', String(ticketTeller));
+  document.getElementById('tktStartnummer').value = start;
+  toonNotificatie('✓ Nummering opgeslagen — volgend ticket: ' + tktPrefix() + String(start).padStart(4,'0'));
 }
 
 function formatDatum(d) {
@@ -209,7 +238,21 @@ function formatDatum(d) {
 }
 
 window.onload = () => {
+  // Migreer oude tickets met timestamp-ID naar TKT-formaat
+  let gewijzigd = false;
+  tickets.forEach(t => {
+    if (t.id && /^TKT-\d{10,}$/.test(t.id)) {
+      ticketTeller++;
+      t.id = tktPrefix() + String(ticketTeller).padStart(4, '0');
+      gewijzigd = true;
+    }
+  });
+  if (gewijzigd) { localStorage.setItem('bt_tickets', JSON.stringify(tickets)); localStorage.setItem('bt_teller', String(ticketTeller)); }
+
   if (instellingen.proxyUrl) { document.getElementById('proxyUrl').value = instellingen.proxyUrl; laadMutaties(); }
+  const prefix = localStorage.getItem('bt_prefix') || 'TKT';
+  document.getElementById('tktPrefix').value = prefix;
+  document.getElementById('tktStartnummer').value = ticketTeller + 1;
   renderStatusList(); renderFilterBar(); renderTickets();
 };
 
@@ -242,7 +285,18 @@ async function laadMutaties() {
     if (!resp.ok) throw new Error('HTTP ' + resp.status);
     const data = await resp.json();
     const items = data.items || data.mutations || (Array.isArray(data) ? data : []);
-    mutaties = items.map(m => ({ id: String(m.id || m.mutationId || ''), datum: (m.date || m.datum || '').substring(0, 10), omschrijving: m.description || m.omschrijving || '(geen omschrijving)', bedrag: parseFloat(m.amount || m.bedrag || 0) }));
+    mutaties = items.map(m => ({
+      id: String(m.id || ''),
+      datum: (m.date || '').substring(0, 10),
+      omschrijving: m.description || m.invoiceNumber || '(geen omschrijving)',
+      bedrag: parseFloat(m.amount != null ? m.amount : 0),
+      rekening: String(m.ledgerId || m.ledgerAccount || ''),
+      tegenrekening: String(m.counterLedgerId || m.counterAccount || m.counterLedger || ''),
+      type: m.type != null ? m.type : '',
+      entryNumber: m.entryNumber || '',
+    }));
+    // Debug: log eerste mutatie om veldnamen te zien
+    if (items.length > 0) console.log('API velden eerste mutatie:', Object.keys(items[0]), items[0]);
     updateStatus(true, 'Verbonden'); renderMutaties(); toonNotificatie('✓ ' + mutaties.length + ' mutaties geladen');
     showTab('mutaties', document.querySelector('.tab'));
   } catch(e) {
@@ -253,10 +307,10 @@ async function laadMutaties() {
 
 function laadDemoData() {
   mutaties = [
-    { id: 'MUT-001', datum: '2024-01-15', omschrijving: 'Betaling Leverancier BV – Factuur 2024-089', bedrag: -2450.00 },
-    { id: 'MUT-002', datum: '2024-01-18', omschrijving: 'Ontvangst Klant De Jong Holding', bedrag: 5800.00 },
-    { id: 'MUT-003', datum: '2024-01-22', omschrijving: 'Automatische incasso Belastingdienst BTW', bedrag: -1890.00 },
-    { id: 'MUT-004', datum: '2024-02-05', omschrijving: 'Onbekende bijschrijving – nader te onderzoeken', bedrag: 340.00 },
+    { id: 'MUT-001', datum: '2024-01-15', omschrijving: 'Betaling Leverancier BV – Factuur 2024-089', bedrag: -2450.00, rekening: '1300', tegenrekening: '4000' },
+    { id: 'MUT-002', datum: '2024-01-18', omschrijving: 'Ontvangst Klant De Jong Holding', bedrag: 5800.00, rekening: '1300', tegenrekening: '8000' },
+    { id: 'MUT-003', datum: '2024-01-22', omschrijving: 'Automatische incasso Belastingdienst BTW', bedrag: -1890.00, rekening: '1900', tegenrekening: '1600' },
+    { id: 'MUT-004', datum: '2024-02-05', omschrijving: 'Onbekende bijschrijving – nader te onderzoeken', bedrag: 340.00, rekening: '1300', tegenrekening: '' },
   ];
   updateStatus(true, 'Demo-modus'); renderMutaties(); toonNotificatie('▶ Demo-data geladen');
   showTab('mutaties', document.querySelector('.tab'));
@@ -271,9 +325,9 @@ function renderMutaties(data) {
     const mt = tickets.filter(t => t.mutatieId === m.id);
     const pos = m.bedrag >= 0;
     const pills = mt.map(t => '<div class="ticket-pill" onclick="openBewerkTicket(\'' + t.id + '\')"><span class="pill-name">🎫 <strong>' + t.id + '</strong> ' + (t.subject.length > 18 ? t.subject.substring(0,18)+'…' : t.subject) + '</span><span class="pill-status"> · ' + (t.status || statussen[0]) + ' · ' + formatDatum(t.aangemaaktISO || t.aangemaakt) + '</span></div>').join('');
-    return '<tr><td><span class="mutation-id">' + m.id + '</span></td><td style="white-space:nowrap">' + m.datum + '</td><td>' + m.omschrijving + '</td><td class="amount ' + (pos?'positive':'negative') + '" style="white-space:nowrap">€ ' + (pos?'+':'') + m.bedrag.toFixed(2).replace('.',',') + '</td><td><div class="ticket-stack">' + pills + '<button class="btn btn-secondary btn-sm" onclick=\'openNieuwTicket(' + JSON.stringify(m) + ')\' style="align-self:flex-start;' + (mt.length?'margin-top:4px':'') + '">+ Ticket</button></div></td></tr>';
+    return '<tr><td><span class="mutation-id">' + m.id + '</span></td><td style="white-space:nowrap">' + m.datum + '</td><td>' + m.omschrijving + '</td><td style="font-size:11px;color:var(--muted)">' + (m.rekening||'—') + '</td><td style="font-size:11px;color:var(--muted)">' + (m.tegenrekening||'—') + '</td><td class="amount ' + (pos?'positive':'negative') + '" style="white-space:nowrap">€ ' + (pos?'+':'') + m.bedrag.toFixed(2).replace('.',',') + '</td><td><div class="ticket-stack">' + pills + '<button class="btn btn-secondary btn-sm" onclick=\'openNieuwTicket(' + JSON.stringify(m) + ')\' style="align-self:flex-start;' + (mt.length?'margin-top:4px':'') + '">+ Ticket</button></div></td></tr>';
   }).join('');
-  content.innerHTML = '<table><thead><tr><th>ID</th><th>Datum</th><th>Omschrijving</th><th>Bedrag</th><th>Tickets</th></tr></thead><tbody>' + rows + '</tbody></table>';
+  content.innerHTML = '<table><thead><tr><th>ID</th><th>Datum</th><th>Omschrijving</th><th>Rekening</th><th>Tegenrekening</th><th>Bedrag</th><th>Tickets</th></tr></thead><tbody>' + rows + '</tbody></table>';
 }
 
 function filterMutaties() {
