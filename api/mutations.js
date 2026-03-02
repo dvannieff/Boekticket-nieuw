@@ -20,7 +20,7 @@ module.exports = async function handler(req, res) {
   if (!token) { res.status(500).json({ error: 'Token ontbreekt' }); return; }
 
   const id = req.query.id;
-  if (!id) { res.status(404).json({ error: 'id parameter vereist' }); return; }
+ if (!id) { res.status(400).json({ error: 'id parameter vereist' }); return; }
 
   try {
     const sessionBody = JSON.stringify({ accessToken: token, source: 'BTicket' });
