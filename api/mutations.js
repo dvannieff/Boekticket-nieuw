@@ -17,44 +17,61 @@ module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
 
   const token = process.env.EBOEKHOUDEN_TOKEN;
-  if (!token) {
-    res.status(500).json({ error: 'Token ontbreekt' });
-    return;
-  }
+  if (!token) { res.status(500).json({ error: 'Token ontbreekt' }); return; }
 
   try {
     // Stap 1: sessie aanmaken
- const sessionBody = JSON.stringify({ accessToken: token, source: 'BTicket'});
+    const sessionBody = JSON.stringify({ accessToken: token, source: 'BTicket' });
     const sessionRes = await doRequest({
       hostname: 'api.e-boekhouden.nl',
       path: '/v1/session',
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Content-Length': Buffer.byteLength(sessionBody)
-      }
+      headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(sessionBody) }
     }, sessionBody);
 
     const session = JSON.parse(sessionRes.body);
     const sessionToken = session.token;
+    if (!sessionToken) { res.status(500).json({ error: 'Geen sessie token', details: session }); return; }
 
-    if (!sessionToken) {
-      res.status(500).json({ error: 'Geen sessie token', details: session });
-      return;
-    }
+    const authHeaders = { 'Authorization': sessionToken, 'Accept': 'application/json' };
 
-    // Stap 2: mutaties ophalen
-    const mutRes = await doRequest({
+    // Stap 2: grootboekrekeningen ophalen
+    const ledgerRes = await doRequest({
       hostname: 'api.e-boekhouden.nl',
-      path: '/v1/mutation?limit=100&offset=0',
+      path: '/v1/ledger?limit=2000&offset=0',
       method: 'GET',
-      headers: {
-        'Authorization': sessionToken,
-        'Accept': 'application/json'
-      }
+      headers: authHeaders
     }, null);
 
-    res.status(mutRes.status).json(JSON.parse(mutRes.body));
+    const ledgerData = JSON.parse(ledgerRes.body);
+    const ledgers = ledgerData.items || ledgerData || [];
+
+    // Maak een lookup: id -> code
+    const ledgerMap = {};
+    ledgers.forEach(function(l) {
+      ledgerMap[l.id] = l.code || l.accountCode || String(l.id);
+    });
+
+    // Stap 3: mutaties ophalen
+    const limit = req.query.limit || 100;
+    const offset = req.query.offset || 0;
+    const mutRes = await doRequest({
+      hostname: 'api.e-boekhouden.nl',
+      path: '/v1/mutation?limit=' + limit + '&offset=' + offset,
+      method: 'GET',
+      headers: authHeaders
+    }, null);
+
+    const mutData = JSON.parse(mutRes.body);
+    const items = mutData.items || mutData || [];
+
+    // Voeg rekeningcodes toe aan elke mutatie
+    items.forEach(function(m) {
+      m.ledgerCode = ledgerMap[m.ledgerId] || String(m.ledgerId || '');
+      m.counterLedgerCode = ledgerMap[m.counterLedgerId] || String(m.counterLedgerId || '');
+    });
+
+    res.status(200).json({ items: items, ledgerMap: ledgerMap });
 
   } catch(e) {
     res.status(500).json({ error: e.message });
