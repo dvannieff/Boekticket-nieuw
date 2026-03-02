@@ -19,8 +19,10 @@ module.exports = async function handler(req, res) {
   const token = process.env.EBOEKHOUDEN_TOKEN;
   if (!token) { res.status(500).json({ error: 'Token ontbreekt' }); return; }
 
+  const id = req.query.id;
+  if (!id) { res.status(400).json({ error: 'id parameter vereist' }); return; }
+
   try {
-    // Stap 1: sessie aanmaken
     const sessionBody = JSON.stringify({ accessToken: token, source: 'BTicket' });
     const sessionRes = await doRequest({
       hostname: 'api.e-boekhouden.nl',
@@ -33,45 +35,14 @@ module.exports = async function handler(req, res) {
     const sessionToken = session.token;
     if (!sessionToken) { res.status(500).json({ error: 'Geen sessie token', details: session }); return; }
 
-    const authHeaders = { 'Authorization': sessionToken, 'Accept': 'application/json' };
-
-    // Stap 2: grootboekrekeningen ophalen
-    const ledgerRes = await doRequest({
+    const detailRes = await doRequest({
       hostname: 'api.e-boekhouden.nl',
-      path: '/v1/ledger?limit=2000&offset=0',
+      path: '/v1/mutation/' + id,
       method: 'GET',
-      headers: authHeaders
+      headers: { 'Authorization': sessionToken, 'Accept': 'application/json' }
     }, null);
 
-    const ledgerData = JSON.parse(ledgerRes.body);
-    const ledgers = ledgerData.items || ledgerData || [];
-
-    // Maak een lookup: id -> code
-    const ledgerMap = {};
-    ledgers.forEach(function(l) {
-      ledgerMap[l.id] = l.code || l.accountCode || String(l.id);
-    });
-
-    // Stap 3: mutaties ophalen
-    const limit = req.query.limit || 100;
-    const offset = req.query.offset || 0;
-    const mutRes = await doRequest({
-      hostname: 'api.e-boekhouden.nl',
-      path: '/v1/mutation?limit=' + limit + '&offset=' + offset,
-      method: 'GET',
-      headers: authHeaders
-    }, null);
-
-    const mutData = JSON.parse(mutRes.body);
-    const items = mutData.items || mutData || [];
-
-    // Voeg rekeningcodes toe aan elke mutatie
-    items.forEach(function(m) {
-      m.ledgerCode = ledgerMap[m.ledgerId] || String(m.ledgerId || '');
-      m.counterLedgerCode = ledgerMap[m.counterLedgerId] || String(m.counterLedgerId || '');
-    });
-
-    res.status(200).json({ items: items, ledgerMap: ledgerMap });
+    res.status(detailRes.status).json(JSON.parse(detailRes.body));
 
   } catch(e) {
     res.status(500).json({ error: e.message });
