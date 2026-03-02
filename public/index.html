@@ -376,7 +376,9 @@ async function openNieuwTicket(m) {
   if (instellingen.proxyUrl && m.id && !m.id.startsWith('MUT-')) {
     try {
       const resp = await fetch(instellingen.proxyUrl + '/api/mutationdetail?id=' + parseInt(m.id));
-      const detail = await resp.json();
+      const tekst = await resp.text();
+      console.log('Tegenrekening response:', resp.status, tekst.substring(0, 200));
+      const detail = JSON.parse(tekst);
       if (detail.rows && detail.rows.length > 0) {
         const tegenId = detail.rows[0].ledgerId;
         // Zoek code op in mutaties ledgerMap (al opgeslagen bij laden)
