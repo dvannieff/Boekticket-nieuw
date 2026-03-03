@@ -52,7 +52,7 @@ module.exports = async function handler(req, res) {
       headers: authHeaders
     }, null);
     const mutData = JSON.parse(mutRes.body);
-    const items = mutData.items || mutData || [];
+    const items = Array.isArray(mutData) ? mutData : (mutData.items || mutData.mutations || []);
     items.forEach(function(m) {
       m.ledgerCode = ledgerMap[m.ledgerId] || String(m.ledgerId || '');
       m.counterLedgerCode = ledgerMap[m.counterLedgerId] || String(m.counterLedgerId || '');
