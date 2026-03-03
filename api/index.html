@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BoekTicket</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Syne:wght@400;600;700;800&display=swap');
+  :root { --bg:#0e0f13;--surface:#16181f;--surface2:#1e2028;--border:#2a2d38;--accent:#4fffb0;--accent2:#ff6b35;--text:#e8eaf0;--muted:#6b7080;--danger:#ff4757;--warning:#ffd32a;--info:#4fa3ff; }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-height:100vh;}
+  body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(79,255,176,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(79,255,176,0.03) 1px,transparent 1px);background-size:40px 40px;pointer-events:none;z-index:0;}
+  .app{position:relative;z-index:1;max-width:1200px;margin:0 auto;padding:32px 24px;}
+  header{display:flex;align-items:center;justify-content:space-between;margin-bottom:40px;padding-bottom:24px;border-bottom:1px solid var(--border);}
+  .logo{font-family:'Syne',sans-serif;font-weight:800;font-size:22px;} .logo span{color:var(--accent);}
+  .status-dot{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);}
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--muted);}
+  .dot.connected{background:var(--accent);box-shadow:0 0 8px var(--accent);} .dot.error{background:var(--danger);}
+  .tabs{display:flex;gap:4px;margin-bottom:28px;background:var(--surface);padding:4px;border-radius:10px;width:fit-content;}
+  .tab{padding:8px 20px;border:none;background:transparent;color:var(--muted);font-family:'DM Mono',monospace;font-size:13px;cursor:pointer;border-radius:7px;transition:all 0.2s;}
+  .tab.active{background:var(--surface2);color:var(--accent);border:1px solid var(--border);} .tab:hover:not(.active){color:var(--text);}
+  .panel{display:none;} .panel.active{display:block;}
+  .settings-grid{display:flex;flex-direction:column;gap:20px;max-width:560px;}
+  .settings-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:28px;}
+  .settings-card h2{font-family:'Syne',sans-serif;font-weight:700;font-size:17px;margin-bottom:6px;}
+  .settings-card>p{font-size:12px;color:var(--muted);margin-bottom:20px;line-height:1.6;}
+  .field{margin-bottom:16px;} .field label{display:block;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;}
+  .field input{width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:'DM Mono',monospace;font-size:13px;padding:10px 14px;border-radius:8px;outline:none;transition:border-color 0.2s;}
+  .field input:focus{border-color:var(--accent);} .field input::placeholder{color:var(--muted);}
+  .status-list{display:flex;flex-direction:column;gap:8px;margin-bottom:16px;}
+  .status-item{display:flex;align-items:center;gap:8px;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:8px 12px;}
+  .status-item input{flex:1;background:transparent;border:none;color:var(--text);font-family:'DM Mono',monospace;font-size:13px;outline:none;}
+  .status-item .drag-handle{color:var(--muted);font-size:14px;}
+  .status-item .del-btn{background:none;border:none;color:var(--muted);cursor:pointer;font-size:14px;padding:2px 4px;border-radius:4px;transition:color 0.15s;}
+  .status-item .del-btn:hover{color:var(--danger);}
+  .add-status-row{display:flex;gap:8px;}
+  .add-status-input{flex:1;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:'DM Mono',monospace;font-size:13px;padding:8px 14px;border-radius:8px;outline:none;transition:border-color 0.2s;}
+  .add-status-input:focus{border-color:var(--accent);} .add-status-input::placeholder{color:var(--muted);}
+  .btn{display:inline-flex;align-items:center;gap:8px;padding:10px 20px;border-radius:8px;font-family:'DM Mono',monospace;font-size:13px;cursor:pointer;border:none;transition:all 0.2s;}
+  .btn-primary{background:var(--accent);color:#0e0f13;font-weight:500;} .btn-primary:hover{background:#3de89e;transform:translateY(-1px);}
+  .btn-secondary{background:var(--surface2);color:var(--text);border:1px solid var(--border);} .btn-secondary:hover{border-color:var(--accent);color:var(--accent);}
+  .btn-danger{background:transparent;color:var(--danger);border:1px solid var(--danger);} .btn-danger:hover{background:rgba(255,71,87,0.1);}
+  .btn-sm{padding:6px 12px;font-size:11px;}
+  .toolbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;gap:12px;flex-wrap:wrap;}
+  .toolbar-left{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+  .search-box{background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:'DM Mono',monospace;font-size:13px;padding:8px 14px;border-radius:8px;outline:none;width:220px;transition:border-color 0.2s;}
+  .search-box:focus{border-color:var(--accent);}
+  .badge{background:var(--surface2);border:1px solid var(--border);color:var(--muted);font-size:11px;padding:4px 10px;border-radius:20px;}
+  .table-wrap{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;}
+  table{width:100%;border-collapse:collapse;} thead{background:var(--surface2);}
+  th{text-align:left;padding:12px 16px;font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);border-bottom:1px solid var(--border);font-weight:400;}
+  td{padding:10px 16px;font-size:13px;border-bottom:1px solid rgba(42,45,56,0.5);vertical-align:top;}
+  tr:last-child td{border-bottom:none;} tr:hover td{background:rgba(255,255,255,0.02);}
+  .amount{font-weight:500;} .amount.positive{color:var(--accent);} .amount.negative{color:var(--danger);}
+  .mutation-id{color:var(--muted);font-size:11px;}
+  .ticket-stack{display:flex;flex-direction:column;gap:5px;}
+  .ticket-pill{display:inline-flex;align-items:center;gap:5px;font-size:11px;padding:4px 10px;border-radius:4px;cursor:pointer;transition:opacity 0.15s;border:1px solid var(--border);background:var(--surface2);color:var(--text);max-width:260px;}
+  .ticket-pill:hover{opacity:0.75;} .ticket-pill .pill-status{font-size:10px;opacity:0.75;color:var(--muted);}
+  .ticket-pill .pill-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .empty-state{text-align:center;padding:60px 20px;color:var(--muted);}
+  .empty-state .icon{font-size:40px;margin-bottom:12px;} .empty-state p{font-size:13px;line-height:1.6;}
+  .tickets-grid{display:flex;flex-direction:column;gap:12px;}
+  .ticket-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;transition:border-color 0.2s;animation:slideIn 0.3s ease;}
+  @keyframes slideIn{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
+  .ticket-card:hover{border-color:rgba(79,255,176,0.3);}
+  .ticket-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:12px;gap:12px;}
+  .ticket-meta{flex:1;} .ticket-title{font-family:'Syne',sans-serif;font-weight:600;font-size:15px;margin-bottom:4px;}
+  .ticket-sub{font-size:11px;color:var(--muted);display:flex;gap:12px;flex-wrap:wrap;margin-bottom:8px;}
+  .ticket-badges{display:flex;gap:6px;flex-wrap:wrap;align-items:center;}
+  .priority-badge{font-size:11px;padding:3px 10px;border-radius:4px;}
+  .priority-hoog{background:rgba(255,71,87,0.15);color:var(--danger);border:1px solid rgba(255,71,87,0.3);}
+  .priority-midden{background:rgba(255,211,42,0.1);color:var(--warning);border:1px solid rgba(255,211,42,0.3);}
+  .priority-laag{background:rgba(107,112,128,0.15);color:var(--muted);border:1px solid var(--border);}
+  .status-badge{font-size:11px;padding:3px 10px;border-radius:4px;background:var(--surface2);color:var(--text);border:1px solid var(--border);}
+  .ticket-note{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 14px;font-size:13px;color:var(--text);line-height:1.6;margin-bottom:12px;white-space:pre-wrap;}
+  .ticket-note.placeholder{color:var(--muted);font-style:italic;} .ticket-actions{display:flex;gap:8px;}
+  .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.7);backdrop-filter:blur(4px);z-index:100;display:flex;align-items:center;justify-content:center;padding:20px;}
+  .modal{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:32px;width:100%;max-width:500px;animation:scaleIn 0.2s ease;max-height:90vh;overflow-y:auto;}
+  @keyframes scaleIn{from{transform:scale(0.95);opacity:0;}to{transform:scale(1);opacity:1;}}
+  .modal h3{font-family:'Syne',sans-serif;font-weight:700;font-size:18px;margin-bottom:6px;}
+  .modal .mutation-ref{font-size:12px;color:var(--muted);margin-bottom:20px;}
+  .modal textarea{width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:'DM Mono',monospace;font-size:13px;padding:12px 14px;border-radius:8px;outline:none;resize:vertical;min-height:100px;line-height:1.6;transition:border-color 0.2s;margin-bottom:4px;}
+  .modal textarea:focus{border-color:var(--accent);} .modal-footer{display:flex;gap:10px;justify-content:flex-end;margin-top:16px;}
+  .styled-select{width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:'DM Mono',monospace;font-size:13px;padding:10px 14px;border-radius:8px;outline:none;transition:border-color 0.2s;appearance:none;cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%236b7080' viewBox='0 0 16 16'%3E%3Cpath d='M7.247 11.14 2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 14px center;}
+  .styled-select:focus{border-color:var(--accent);} .styled-select option{background:var(--surface2);color:var(--text);}
+  .selector-row{display:flex;gap:8px;margin-bottom:16px;}
+  .selector-option{flex:1;padding:8px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--muted);font-family:'DM Mono',monospace;font-size:12px;cursor:pointer;text-align:center;transition:all 0.15s;}
+  .selector-option.sel-hoog{border-color:var(--danger);color:var(--danger);background:rgba(255,71,87,0.1);}
+  .selector-option.sel-midden{border-color:var(--warning);color:var(--warning);background:rgba(255,211,42,0.08);}
+  .selector-option.sel-laag{border-color:var(--muted);color:var(--text);background:var(--surface2);}
+  .loading{display:flex;align-items:center;justify-content:center;gap:12px;padding:40px;color:var(--muted);font-size:13px;}
+  .spinner{width:20px;height:20px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  .notification{position:fixed;bottom:24px;right:24px;background:var(--surface2);border:1px solid var(--accent);color:var(--accent);padding:12px 20px;border-radius:10px;font-size:13px;z-index:200;animation:slideUp 0.3s ease;}
+  .notification.err{border-color:var(--danger);color:var(--danger);}
+  @keyframes slideUp{from{transform:translateY(10px);opacity:0;}to{transform:translateY(0);opacity:1;}}
+  .filter-bar{display:flex;gap:6px;flex-wrap:wrap;}
+  .filter-btn{padding:5px 12px;border-radius:20px;font-family:'DM Mono',monospace;font-size:11px;cursor:pointer;border:1px solid var(--border);background:var(--surface2);color:var(--muted);transition:all 0.15s;}
+  .filter-btn.active{border-color:var(--accent);color:var(--accent);background:rgba(79,255,176,0.08);}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="logo">Boek<span>Ticket</span></div>
+    <div class="status-dot"><div class="dot" id="statusDot"></div><span id="statusText">Niet verbonden</span></div>
+  </header>
+  <div class="tabs">
+    <button class="tab active" onclick="showTab('mutaties',this)">📊 Mutaties</button>
+    <button class="tab" onclick="showTab('tickets',this)">🎫 Tickets</button>
+    <button class="tab" onclick="showTab('instellingen',this)">⚙️ Instellingen</button>
+  </div>
+
+  <!-- MUTATIES -->
+  <div class="panel active" id="panel-mutaties">
+    <div class="toolbar">
+      <div class="toolbar-left">
+        <input class="search-box" id="searchBox" type="text" placeholder="Zoek mutatie..." oninput="filterMutaties()">
+        <span class="badge" id="countBadge">0 mutaties</span>
+      </div>
+      <button class="btn btn-primary" onclick="laadMutaties()">↻ Ververs</button>
+    </div>
+    <div class="toolbar" style="margin-top:-8px;margin-bottom:12px;">
+      <div class="toolbar-left">
+        <label style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;">Van</label>
+        <input type="date" id="filterVan" class="search-box" style="width:150px">
+        <label style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;">Tot</label>
+        <input type="date" id="filterTot" class="search-box" style="width:150px">
+        <button class="btn btn-secondary btn-sm" onclick="laadMutaties()">↻ Toepassen</button>
+      </div>
+    </div>
+    <div class="table-wrap"><div id="mutatiesContent">
+      <div class="empty-state"><div class="icon">🔌</div><p>Volg de stappen bij <strong>⚙️ Instellingen</strong><br>om je mutaties op te halen.</p></div>
+    </div></div>
+  </div>
+
+  <!-- TICKETS -->
+  <div class="panel" id="panel-tickets">
+    <div class="toolbar">
+      <div class="toolbar-left">
+        <span class="badge" id="ticketCountBadge">0 tickets</span>
+        <div class="filter-bar" id="ticketFilterBar"><button class="filter-btn active" onclick="filterTickets('alle',this)">Alle</button></div>
+      </div>
+    </div>
+    <div class="tickets-grid" id="ticketsGrid"></div>
+  </div>
+
+  <!-- INSTELLINGEN -->
+  <div class="panel" id="panel-instellingen">
+    <div class="settings-grid">
+      <div class="settings-card">
+        <h2>🔌 API-verbinding</h2>
+        <p>Verbind met je e-boekhouden.nl account via de Vercel proxy.</p>
+        <div class="field">
+          <label>Jouw Vercel URL</label>
+          <input type="text" id="proxyUrl" placeholder="https://boekticket-nieuw.vercel.app">
+        </div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+          <button class="btn btn-primary" onclick="verbindViaProxy()">⚡ Verbinden</button>
+          <button class="btn btn-secondary" onclick="laadDemoData()">▶ Demo-data</button>
+        </div>
+      </div>
+      <div class="settings-card">
+        <h2>🔢 Ticketnummering</h2>
+        <p>Stel het prefix en startnummer in. Nieuwe tickets tellen automatisch op.</p>
+        <div style="display:flex;gap:12px;flex-wrap:wrap;">
+          <div class="field" style="flex:1;min-width:120px">
+            <label>Prefix</label>
+            <input type="text" id="tktPrefix" placeholder="TKT">
+          </div>
+          <div class="field" style="flex:1;min-width:120px">
+            <label>Volgend nummer</label>
+            <input type="number" id="tktStartnummer" min="1" placeholder="1">
+          </div>
+        </div>
+        <button class="btn btn-secondary btn-sm" onclick="slaNummeringOp()">✓ Opslaan</button>
+      </div>
+      <div class="settings-card">
+        <h2>🏷️ Statussen beheren</h2>
+        <p>Voeg statussen toe of verwijder ze. Vergeet niet op <strong>Opslaan</strong> te klikken.</p>
+        <div class="status-list" id="statusList"></div>
+        <div class="add-status-row">
+          <input class="add-status-input" id="nieuweStatus" type="text" placeholder="Nieuwe status toevoegen..." onkeydown="if(event.key==='Enter')voegStatusToe()">
+          <button class="btn btn-primary btn-sm" onclick="voegStatusToe()">+ Toevoegen</button>
+        </div>
+        <div style="margin-top:14px;">
+          <button class="btn btn-secondary btn-sm" onclick="slaStatussenOp()">✓ Opslaan</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal -->
+<div class="modal-overlay" id="modalOverlay" style="display:none" onclick="sluitModal(event)">
+  <div class="modal" onclick="event.stopPropagation()">
+    <h3 id="modalTitle">Ticket aanmaken</h3>
+    <div class="mutation-ref" id="modalRef"></div>
+    <div class="field"><label>Onderwerp</label><input type="text" id="ticketSubject" placeholder="Bijv: Controleer deze betaling"></div>
+    <label style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:8px;">Prioriteit</label>
+    <div class="selector-row">
+      <div class="selector-option sel-laag" onclick="selectPriority('laag')" id="prio-laag">Laag</div>
+      <div class="selector-option" onclick="selectPriority('midden')" id="prio-midden">Midden</div>
+      <div class="selector-option" onclick="selectPriority('hoog')" id="prio-hoog">Hoog</div>
+    </div>
+    <div class="field"><label>Status</label><select class="styled-select" id="ticketStatus"></select></div>
+    <div class="field"><label>Opmerking / Todo</label><textarea id="ticketNote" placeholder="Schrijf hier je opmerking of todo..."></textarea></div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="sluitModalDirect()">Annuleren</button>
+      <button class="btn btn-primary" onclick="slaTicketOp()">✓ Opslaan</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let instellingen = JSON.parse(localStorage.getItem('bt_settings') || '{}');
+let tickets = JSON.parse(localStorage.getItem('bt_tickets') || '[]');
+let statussen = JSON.parse(localStorage.getItem('bt_statussen') || '["Open","In behandeling","Afgerond"]');
+let ticketTeller = parseInt(localStorage.getItem('bt_teller') || '0');
+let mutaties = [];
+let huidigeMutatie = null, huidigPrio = 'laag', bewerkTicketId = null, ticketFilter = 'alle';
+
+function tktPrefix() {
+  return (localStorage.getItem('bt_prefix') || 'TKT') + '-';
+}
+
+function volgendTicketNummer() {
+  ticketTeller++;
+  localStorage.setItem('bt_teller', String(ticketTeller));
+  return tktPrefix() + String(ticketTeller).padStart(4, '0');
+}
+
+function slaNummeringOp() {
+  const prefix = document.getElementById('tktPrefix').value.trim() || 'TKT';
+  const start = parseInt(document.getElementById('tktStartnummer').value) || 1;
+  localStorage.setItem('bt_prefix', prefix);
+  ticketTeller = start - 1;
+  localStorage.setItem('bt_teller', String(ticketTeller));
+  document.getElementById('tktStartnummer').value = start;
+  toonNotificatie('✓ Nummering opgeslagen — volgend ticket: ' + tktPrefix() + String(start).padStart(4,'0'));
+}
+
+function formatDatum(d) {
+  const dt = new Date(d);
+  if (isNaN(dt)) return d;
+  return dt.toLocaleDateString('nl-NL', {day:'2-digit',month:'2-digit',year:'numeric'}) + ' ' + dt.toLocaleTimeString('nl-NL', {hour:'2-digit',minute:'2-digit'});
+}
+
+window.onload = () => {
+  // Standaard periode: huidige maand
+  const nu = new Date();
+  const eersteVanMaand = nu.getFullYear() + '-' + String(nu.getMonth()+1).padStart(2,'0') + '-01';
+  const vandaag = nu.toISOString().substring(0,10);
+  setTimeout(() => {
+    if (document.getElementById('filterVan')) document.getElementById('filterVan').value = eersteVanMaand;
+    if (document.getElementById('filterTot')) document.getElementById('filterTot').value = vandaag;
+  }, 50);
+  // Migreer oude tickets met timestamp-ID naar TKT-formaat
+  let gewijzigd = false;
+  tickets.forEach(t => {
+    if (t.id && /^TKT-\d{10,}$/.test(t.id)) {
+      ticketTeller++;
+      t.id = tktPrefix() + String(ticketTeller).padStart(4, '0');
+      gewijzigd = true;
+    }
+  });
+  if (gewijzigd) { localStorage.setItem('bt_tickets', JSON.stringify(tickets)); localStorage.setItem('bt_teller', String(ticketTeller)); }
+
+  if (instellingen.proxyUrl) { document.getElementById('proxyUrl').value = instellingen.proxyUrl; laadMutaties(); }
+  const prefix = localStorage.getItem('bt_prefix') || 'TKT';
+  document.getElementById('tktPrefix').value = prefix;
+  document.getElementById('tktStartnummer').value = ticketTeller + 1;
+  renderStatusList(); renderFilterBar(); renderTickets();
+};
+
+function showTab(naam, el) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('panel-' + naam).classList.add('active');
+  if (el) el.classList.add('active');
+}
+
+function updateStatus(ok, tekst) {
+  document.getElementById('statusDot').className = 'dot ' + (ok ? 'connected' : 'error');
+  document.getElementById('statusText').textContent = tekst;
+}
+
+function verbindViaProxy() {
+  const url = document.getElementById('proxyUrl').value.trim().replace(/\/$/, '');
+  if (!url.startsWith('http')) { toonNotificatie('⚠️ Vul een geldige URL in', true); return; }
+  instellingen.proxyUrl = url;
+  localStorage.setItem('bt_settings', JSON.stringify(instellingen));
+  laadMutaties();
+}
+
+async function laadMutaties() {
+  if (!instellingen.proxyUrl) { laadDemoData(); return; }
+  const content = document.getElementById('mutatiesContent');
+  content.innerHTML = '<div class="loading"><div class="spinner"></div>Mutaties ophalen...</div>';
+
+  // Periode filter
+  function normaliseerDatum(val) {
+    if (!val) return '';
+    if (/^\d{2}-\d{2}-\d{4}$/.test(val)) {
+      const p = val.split('-'); return p[2] + '-' + p[1] + '-' + p[0];
+    }
+    return val;
+  }
+  const van = normaliseerDatum(document.getElementById('filterVan') ? document.getElementById('filterVan').value : '');
+  const tot = normaliseerDatum(document.getElementById('filterTot') ? document.getElementById('filterTot').value : '');
+  let url = instellingen.proxyUrl + '/api/mutations?limit=100&offset=0&_=' + Date.now();
+  if (van) url += '&dateFrom=' + van;
+  if (tot) url += '&dateTo=' + tot;
+
+  try {
+    const resp = await fetch(url);
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const data = await resp.json();
+    const items = Array.isArray(data) ? data : (data.items || data.mutations || []);
+    mutaties = items.map(m => ({
+      id: String(m.id || ''),
+      datum: (m.date || '').substring(0, 10),
+      omschrijving: m.description || m.invoiceNumber || '(geen omschrijving)',
+      bedrag: parseFloat(m.amount != null ? m.amount : 0),
+      rekening: String(m.ledgerCode || m.ledgerId || ''),
+      tegenrekening: '',
+    }));
+    window.ledgerMap = data.ledgerMap || {};
+    updateStatus(true, 'Verbonden'); renderMutaties(); toonNotificatie('✓ ' + mutaties.length + ' mutaties geladen');
+    showTab('mutaties', document.querySelector('.tab'));
+
+    // Progressive loading tegenrekeningen
+    laadTegenrekeningenProgressief();
+
+  } catch(e) {
+    content.innerHTML = '<div class="empty-state"><div class="icon">⚠️</div><p><strong>Verbinding mislukt</strong><br><span style="color:var(--danger);font-size:12px">' + e.message + '</span></p></div>';
+    updateStatus(false, 'Verbindingsfout');
+  }
+}
+
+async function laadTegenrekeningenProgressief() {
+  for (let i = 0; i < mutaties.length; i++) {
+    const m = mutaties[i];
+    if (!m.id || m.id.startsWith('MUT-')) continue;
+    try {
+      const resp = await fetch(instellingen.proxyUrl + '/api/mutationdetail?id=' + parseInt(m.id));
+      const detail = JSON.parse(await resp.text());
+      if (detail.rows && detail.rows.length > 0) {
+        const tegenId = detail.rows[0].ledgerId;
+        m.tegenrekening = window.ledgerMap[tegenId] || String(tegenId);
+        // Update alleen de tegenrekening cel in de tabel
+        const cel = document.getElementById('tegen-' + m.id);
+        if (cel) cel.textContent = m.tegenrekening;
+      }
+    } catch(e) { /* stil verder */ }
+  }
+}
+
+function laadDemoData() {
+  mutaties = [
+    { id: 'MUT-001', datum: '2024-01-15', omschrijving: 'Betaling Leverancier BV – Factuur 2024-089', bedrag: -2450.00, rekening: '1300', tegenrekening: '4000' },
+    { id: 'MUT-002', datum: '2024-01-18', omschrijving: 'Ontvangst Klant De Jong Holding', bedrag: 5800.00, rekening: '1300', tegenrekening: '8000' },
+    { id: 'MUT-003', datum: '2024-01-22', omschrijving: 'Automatische incasso Belastingdienst BTW', bedrag: -1890.00, rekening: '1900', tegenrekening: '1600' },
+    { id: 'MUT-004', datum: '2024-02-05', omschrijving: 'Onbekende bijschrijving – nader te onderzoeken', bedrag: 340.00, rekening: '1300', tegenrekening: '' },
+  ];
+  updateStatus(true, 'Demo-modus'); renderMutaties(); toonNotificatie('▶ Demo-data geladen');
+  showTab('mutaties', document.querySelector('.tab'));
+}
+
+function renderMutaties(data) {
+  const lijst = data || mutaties;
+  const content = document.getElementById('mutatiesContent');
+  document.getElementById('countBadge').textContent = lijst.length + ' mutaties';
+  if (!lijst.length) { content.innerHTML = '<div class="empty-state"><div class="icon">📭</div><p>Geen mutaties gevonden.</p></div>'; return; }
+  const rows = lijst.map(m => {
+    const mt = tickets.filter(t => t.mutatieId === m.id);
+    const pos = m.bedrag >= 0;
+    const pills = mt.map(t => '<div class="ticket-pill" onclick="openBewerkTicket(\'' + t.id + '\')"><span class="pill-name">🎫 <strong>' + t.id + '</strong> ' + (t.subject.length > 18 ? t.subject.substring(0,18)+'…' : t.subject) + '</span><span class="pill-status"> · ' + (t.status || statussen[0]) + ' · ' + formatDatum(t.aangemaaktISO || t.aangemaakt) + '</span></div>').join('');
+    return '<tr><td><span class="mutation-id">' + m.id + '</span></td><td style="white-space:nowrap">' + m.datum + '</td><td>' + m.omschrijving + '</td><td style="font-size:11px;color:var(--muted)">' + (m.rekening||'—') + '</td><td style="font-size:11px;color:var(--muted)" id="tegen-' + m.id + '">' + (m.tegenrekening||'…') + '</td><td class="amount ' + (pos?'positive':'negative') + '" style="white-space:nowrap">€ ' + (pos?'+':'') + m.bedrag.toFixed(2).replace('.',',') + '</td><td><div class="ticket-stack">' + pills + '<button class="btn btn-secondary btn-sm" onclick=\'openNieuwTicket(' + JSON.stringify(m) + ')\' style="align-self:flex-start;' + (mt.length?'margin-top:4px':'') + '">+ Ticket</button></div></td></tr>';
+  }).join('');
+  content.innerHTML = '<table><thead><tr><th>ID</th><th>Datum</th><th>Factuurnummer</th><th>Rekening</th><th>Tegenrekening</th><th>Bedrag</th><th>Tickets</th></tr></thead><tbody>' + rows + '</tbody></table>';
+}
+
+function filterMutaties() {
+  const q = document.getElementById('searchBox').value.toLowerCase();
+  renderMutaties(mutaties.filter(m => m.omschrijving.toLowerCase().includes(q) || m.id.toLowerCase().includes(q) || m.datum.includes(q)));
+}
+
+function renderStatusList() {
+  document.getElementById('statusList').innerHTML = statussen.map((s, i) => '<div class="status-item"><span class="drag-handle">⠿</span><input type="text" value="' + s + '" onchange="statussen[' + i + ']=this.value"><button class="del-btn" onclick="verwijderStatus(' + i + ')">✕</button></div>').join('');
+}
+
+function voegStatusToe() {
+  const input = document.getElementById('nieuweStatus');
+  const val = input.value.trim(); if (!val) return;
+  statussen.push(val); input.value = ''; renderStatusList(); toonNotificatie('✓ Status "' + val + '" toegevoegd');
+}
+
+function verwijderStatus(i) {
+  if (statussen.length <= 1) { toonNotificatie('⚠️ Minimaal één status vereist', true); return; }
+  statussen.splice(i, 1); renderStatusList();
+}
+
+function slaStatussenOp() {
+  localStorage.setItem('bt_statussen', JSON.stringify(statussen));
+  renderFilterBar(); renderTickets(); toonNotificatie('✓ Statussen opgeslagen');
+}
+
+function vulStatusDropdown(huidig) {
+  document.getElementById('ticketStatus').innerHTML = statussen.map(s => '<option value="' + s + '"' + (s === huidig ? ' selected' : '') + '>' + s + '</option>').join('');
+}
+
+function renderFilterBar() {
+  document.getElementById('ticketFilterBar').innerHTML = '<button class="filter-btn ' + (ticketFilter==='alle'?'active':'') + '" onclick="filterTickets(\'alle\',this)">Alle</button>' + statussen.map(s => '<button class="filter-btn ' + (ticketFilter===s?'active':'') + '" onclick="filterTickets(\'' + s + '\',this)">' + s + '</button>').join('');
+}
+
+async function openNieuwTicket(m) {
+  huidigeMutatie = m; bewerkTicketId = null;
+  document.getElementById('modalTitle').textContent = 'Ticket aanmaken';
+  document.getElementById('modalRef').textContent = '📎 ' + m.id + ' — ' + m.omschrijving;
+  document.getElementById('ticketSubject').value = '';
+  document.getElementById('ticketNote').value = '';
+  selectPriority('laag'); vulStatusDropdown(statussen[0]);
+  document.getElementById('modalOverlay').style.display = 'flex';
+
+  // Tegenrekening ophalen op de achtergrond
+  if (instellingen.proxyUrl && m.id && !String(m.id).startsWith('MUT-')) {
+    try {
+      const resp = await fetch(instellingen.proxyUrl + '/api/mutationdetail?id=' + parseInt(m.id));
+      const tekst = await resp.text();
+      const detail = JSON.parse(tekst);
+      if (detail.rows && detail.rows.length > 0) {
+        const tegenId = detail.rows[0].ledgerId;
+        // Zoek code op in mutaties ledgerMap (al opgeslagen bij laden)
+        const tegenCode = window.ledgerMap ? (window.ledgerMap[tegenId] || String(tegenId)) : String(tegenId);
+        // Update mutatie object en toon in modalRef
+        m.tegenrekening = tegenCode;
+        huidigeMutatie = m;
+        document.getElementById('modalRef').textContent = '📎 ' + m.id + ' — ' + m.omschrijving + ' | rekening: ' + (m.rekening||'?') + ' / ' + tegenCode;
+        // Ook opslaan in mutaties array
+        const idx = mutaties.findIndex(x => x.id === m.id);
+        if (idx >= 0) { mutaties[idx].tegenrekening = tegenCode; renderMutaties(); }
+      }
+    } catch(e) { console.log('Tegenrekening ophalen mislukt:', e); }
+  }
+}
+
+async function openBewerkTicket(id) {
+  const t = tickets.find(x => x.id === id); if (!t) return;
+  bewerkTicketId = id; huidigeMutatie = { id: t.mutatieId, omschrijving: t.mutatieOmschrijving };
+  document.getElementById('modalTitle').textContent = 'Ticket bewerken · ' + t.id;
+  document.getElementById('modalRef').textContent = '📎 ' + t.mutatieId + ' — ' + t.mutatieOmschrijving;
+  document.getElementById('ticketSubject').value = t.subject || '';
+  document.getElementById('ticketNote').value = t.note || '';
+  selectPriority(t.priority || 'laag'); vulStatusDropdown(t.status || statussen[0]);
+  document.getElementById('modalOverlay').style.display = 'flex';
+
+  // Tegenrekening ophalen
+  const mutatieId = parseInt(t.mutatieId);
+  if (instellingen.proxyUrl && mutatieId) {
+    try {
+      const resp = await fetch(instellingen.proxyUrl + '/api/mutationdetail?id=' + mutatieId);
+      const detail = JSON.parse(await resp.text());
+      if (detail.rows && detail.rows.length > 0) {
+        const tegenId = detail.rows[0].ledgerId;
+        const tegenCode = window.ledgerMap ? (window.ledgerMap[tegenId] || String(tegenId)) : String(tegenId);
+        const rekening = mutaties.find(m => m.id === t.mutatieId);
+        huidigeMutatie.rekening = rekening ? rekening.rekening : '';
+        huidigeMutatie.tegenrekening = tegenCode;
+        document.getElementById('modalRef').textContent = '📎 ' + t.mutatieId + ' — ' + t.mutatieOmschrijving + ' | rekening: ' + (rekening ? rekening.rekening : '?') + ' / ' + tegenCode;
+      }
+    } catch(e) { console.log('Tegenrekening ophalen mislukt:', e); }
+  }
+}
+
+function sluitModal(e) { if (e.target.id === 'modalOverlay') sluitModalDirect(); }
+function sluitModalDirect() { document.getElementById('modalOverlay').style.display = 'none'; }
+
+function selectPriority(p) {
+  huidigPrio = p;
+  ['laag','midden','hoog'].forEach(x => { document.getElementById('prio-'+x).className = 'selector-option' + (x === p ? ' sel-'+x : ''); });
+}
+
+function slaTicketOp() {
+  const subject = document.getElementById('ticketSubject').value.trim();
+  const note = document.getElementById('ticketNote').value.trim();
+  const status = document.getElementById('ticketStatus').value;
+  if (!subject) { toonNotificatie('⚠️ Vul een onderwerp in', true); return; }
+  if (bewerkTicketId) {
+    const idx = tickets.findIndex(t => t.id === bewerkTicketId);
+    tickets[idx] = { ...tickets[idx], subject, note, priority: huidigPrio, status, rekening: huidigeMutatie.rekening || tickets[idx].rekening || '', tegenrekening: huidigeMutatie.tegenrekening || tickets[idx].tegenrekening || '', gewijzigd: new Date().toLocaleString('nl-NL') };
+    toonNotificatie('✓ Ticket bijgewerkt');
+  } else {
+    tickets.push({ id: volgendTicketNummer(), mutatieId: huidigeMutatie.id, mutatieOmschrijving: huidigeMutatie.omschrijving, rekening: huidigeMutatie.rekening || '', tegenrekening: huidigeMutatie.tegenrekening || '', subject, note, priority: huidigPrio, status, aangemaaktISO: new Date().toISOString() });
+    toonNotificatie('✓ Ticket aangemaakt');
+  }
+  localStorage.setItem('bt_tickets', JSON.stringify(tickets));
+  sluitModalDirect(); renderTickets(); renderMutaties();
+}
+
+function verwijderTicket(id) {
+  if (!confirm('Weet je zeker dat je dit ticket wilt verwijderen?')) return;
+  tickets = tickets.filter(t => t.id !== id);
+  localStorage.setItem('bt_tickets', JSON.stringify(tickets));
+  renderTickets(); renderMutaties(); toonNotificatie('🗑 Ticket verwijderd');
+}
+
+function filterTickets(filter, el) {
+  ticketFilter = filter;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  if (el) el.classList.add('active'); renderTickets();
+}
+
+function renderTickets() {
+  const grid = document.getElementById('ticketsGrid');
+  const gefilterd = ticketFilter === 'alle' ? tickets : tickets.filter(t => (t.status || statussen[0]) === ticketFilter);
+  document.getElementById('ticketCountBadge').textContent = tickets.length + ' ticket' + (tickets.length !== 1 ? 's' : '');
+  if (!gefilterd.length) {
+    grid.innerHTML = '<div class="empty-state"><div class="icon">🎫</div><p>' + (tickets.length === 0 ? 'Nog geen tickets.<br>Ga naar <strong>Mutaties</strong> en klik "+ Ticket".' : 'Geen tickets met deze status.') + '</p></div>';
+    return;
+  }
+  grid.innerHTML = gefilterd.map(t => '<div class="ticket-card"><div class="ticket-header"><div class="ticket-meta"><div class="ticket-title">' + t.subject + '</div><div class="ticket-sub"><span style="color:var(--accent);font-weight:500">' + t.id + '</span><span>📎 ' + t.mutatieId + '</span><span>🕐 ' + formatDatum(t.aangemaaktISO || t.aangemaakt) + '</span>' + (t.gewijzigd ? '<span>✏️ ' + t.gewijzigd + '</span>' : '') + '</div><div class="ticket-badges"><span class="priority-badge priority-' + t.priority + '">' + t.priority + '</span><span class="status-badge">' + (t.status || statussen[0]) + '</span></div></div></div>' + (t.note ? '<div class="ticket-note">' + t.note + '</div>' : '<div class="ticket-note placeholder">Geen opmerking</div>') + '<div class="ticket-actions"><button class="btn btn-secondary btn-sm" onclick="openBewerkTicket(\'' + t.id + '\')">✏️ Bewerken</button><button class="btn btn-danger btn-sm" onclick="verwijderTicket(\'' + t.id + '\')">🗑 Verwijder</button></div></div>').join('');
+}
+
+function toonNotificatie(tekst, isErr) {
+  const el = document.createElement('div');
+  el.className = 'notification' + (isErr ? ' err' : '');
+  el.textContent = tekst; document.body.appendChild(el);
+  setTimeout(() => el.remove(), 2800);
+}
+</script>
+</body>
+</html>
