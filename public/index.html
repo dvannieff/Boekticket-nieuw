@@ -120,6 +120,15 @@
       </div>
       <button class="btn btn-primary" onclick="laadMutaties()">↻ Ververs</button>
     </div>
+    <div class="toolbar" style="margin-top:-8px;margin-bottom:12px;">
+      <div class="toolbar-left">
+        <label style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;">Van</label>
+        <input type="date" id="filterVan" class="search-box" style="width:150px">
+        <label style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;">Tot</label>
+        <input type="date" id="filterTot" class="search-box" style="width:150px">
+        <button class="btn btn-secondary btn-sm" onclick="laadMutaties()">↻ Toepassen</button>
+      </div>
+    </div>
     <div class="table-wrap"><div id="mutatiesContent">
       <div class="empty-state"><div class="icon">🔌</div><p>Volg de stappen bij <strong>⚙️ Instellingen</strong><br>om je mutaties op te halen.</p></div>
     </div></div>
@@ -238,6 +247,14 @@ function formatDatum(d) {
 }
 
 window.onload = () => {
+  // Standaard periode: huidige maand
+  const nu = new Date();
+  const eersteVanMaand = nu.getFullYear() + '-' + String(nu.getMonth()+1).padStart(2,'0') + '-01';
+  const vandaag = nu.toISOString().substring(0,10);
+  setTimeout(() => {
+    if (document.getElementById('filterVan')) document.getElementById('filterVan').value = eersteVanMaand;
+    if (document.getElementById('filterTot')) document.getElementById('filterTot').value = vandaag;
+  }, 50);
   // Migreer oude tickets met timestamp-ID naar TKT-formaat
   let gewijzigd = false;
   tickets.forEach(t => {
@@ -280,8 +297,16 @@ async function laadMutaties() {
   if (!instellingen.proxyUrl) { laadDemoData(); return; }
   const content = document.getElementById('mutatiesContent');
   content.innerHTML = '<div class="loading"><div class="spinner"></div>Mutaties ophalen...</div>';
+
+  // Periode filter
+  const van = document.getElementById('filterVan') ? document.getElementById('filterVan').value : '';
+  const tot = document.getElementById('filterTot') ? document.getElementById('filterTot').value : '';
+  let url = instellingen.proxyUrl + '/api/mutations?limit=100&offset=0';
+  if (van) url += '&dateFrom=' + van;
+  if (tot) url += '&dateTo=' + tot;
+
   try {
-    const resp = await fetch(instellingen.proxyUrl + '/api/mutations?limit=100&offset=0');
+    const resp = await fetch(url);
     if (!resp.ok) throw new Error('HTTP ' + resp.status);
     const data = await resp.json();
     const items = data.items || data.mutations || (Array.isArray(data) ? data : []);
@@ -291,17 +316,36 @@ async function laadMutaties() {
       omschrijving: m.description || m.invoiceNumber || '(geen omschrijving)',
       bedrag: parseFloat(m.amount != null ? m.amount : 0),
       rekening: String(m.ledgerCode || m.ledgerId || ''),
-      tegenrekening: String(m.counterLedgerCode || m.counterLedgerId || ''),
-      type: m.type != null ? m.type : '',
-      entryNumber: m.entryNumber || '',
+      tegenrekening: '',
     }));
-    // Sla ledgerMap globaal op voor gebruik bij tegenrekening ophalen
     window.ledgerMap = data.ledgerMap || {};
     updateStatus(true, 'Verbonden'); renderMutaties(); toonNotificatie('✓ ' + mutaties.length + ' mutaties geladen');
     showTab('mutaties', document.querySelector('.tab'));
+
+    // Progressive loading tegenrekeningen
+    laadTegenrekeningenProgressief();
+
   } catch(e) {
     content.innerHTML = '<div class="empty-state"><div class="icon">⚠️</div><p><strong>Verbinding mislukt</strong><br><span style="color:var(--danger);font-size:12px">' + e.message + '</span></p></div>';
     updateStatus(false, 'Verbindingsfout');
+  }
+}
+
+async function laadTegenrekeningenProgressief() {
+  for (let i = 0; i < mutaties.length; i++) {
+    const m = mutaties[i];
+    if (!m.id || m.id.startsWith('MUT-')) continue;
+    try {
+      const resp = await fetch(instellingen.proxyUrl + '/api/mutationdetail?id=' + parseInt(m.id));
+      const detail = JSON.parse(await resp.text());
+      if (detail.rows && detail.rows.length > 0) {
+        const tegenId = detail.rows[0].ledgerId;
+        m.tegenrekening = window.ledgerMap[tegenId] || String(tegenId);
+        // Update alleen de tegenrekening cel in de tabel
+        const cel = document.getElementById('tegen-' + m.id);
+        if (cel) cel.textContent = m.tegenrekening;
+      }
+    } catch(e) { /* stil verder */ }
   }
 }
 
@@ -325,7 +369,7 @@ function renderMutaties(data) {
     const mt = tickets.filter(t => t.mutatieId === m.id);
     const pos = m.bedrag >= 0;
     const pills = mt.map(t => '<div class="ticket-pill" onclick="openBewerkTicket(\'' + t.id + '\')"><span class="pill-name">🎫 <strong>' + t.id + '</strong> ' + (t.subject.length > 18 ? t.subject.substring(0,18)+'…' : t.subject) + '</span><span class="pill-status"> · ' + (t.status || statussen[0]) + ' · ' + formatDatum(t.aangemaaktISO || t.aangemaakt) + '</span></div>').join('');
-    return '<tr><td><span class="mutation-id">' + m.id + '</span></td><td style="white-space:nowrap">' + m.datum + '</td><td>' + m.omschrijving + '</td><td style="font-size:11px;color:var(--muted)">' + (m.rekening||'—') + '</td><td style="font-size:11px;color:var(--muted)">' + (m.tegenrekening||'—') + '</td><td class="amount ' + (pos?'positive':'negative') + '" style="white-space:nowrap">€ ' + (pos?'+':'') + m.bedrag.toFixed(2).replace('.',',') + '</td><td><div class="ticket-stack">' + pills + '<button class="btn btn-secondary btn-sm" onclick=\'openNieuwTicket(' + JSON.stringify(m) + ')\' style="align-self:flex-start;' + (mt.length?'margin-top:4px':'') + '">+ Ticket</button></div></td></tr>';
+    return '<tr><td><span class="mutation-id">' + m.id + '</span></td><td style="white-space:nowrap">' + m.datum + '</td><td>' + m.omschrijving + '</td><td style="font-size:11px;color:var(--muted)">' + (m.rekening||'—') + '</td><td style="font-size:11px;color:var(--muted)" id="tegen-' + m.id + '">' + (m.tegenrekening||'…') + '</td><td class="amount ' + (pos?'positive':'negative') + '" style="white-space:nowrap">€ ' + (pos?'+':'') + m.bedrag.toFixed(2).replace('.',',') + '</td><td><div class="ticket-stack">' + pills + '<button class="btn btn-secondary btn-sm" onclick=\'openNieuwTicket(' + JSON.stringify(m) + ')\' style="align-self:flex-start;' + (mt.length?'margin-top:4px':'') + '">+ Ticket</button></div></td></tr>';
   }).join('');
   content.innerHTML = '<table><thead><tr><th>ID</th><th>Datum</th><th>Factuurnummer</th><th>Rekening</th><th>Tegenrekening</th><th>Bedrag</th><th>Tickets</th></tr></thead><tbody>' + rows + '</tbody></table>';
 }
@@ -414,6 +458,8 @@ async function openBewerkTicket(id) {
         const tegenId = detail.rows[0].ledgerId;
         const tegenCode = window.ledgerMap ? (window.ledgerMap[tegenId] || String(tegenId)) : String(tegenId);
         const rekening = mutaties.find(m => m.id === t.mutatieId);
+        huidigeMutatie.rekening = rekening ? rekening.rekening : '';
+        huidigeMutatie.tegenrekening = tegenCode;
         document.getElementById('modalRef').textContent = '📎 ' + t.mutatieId + ' — ' + t.mutatieOmschrijving + ' | rekening: ' + (rekening ? rekening.rekening : '?') + ' / ' + tegenCode;
       }
     } catch(e) { console.log('Tegenrekening ophalen mislukt:', e); }
@@ -435,10 +481,10 @@ function slaTicketOp() {
   if (!subject) { toonNotificatie('⚠️ Vul een onderwerp in', true); return; }
   if (bewerkTicketId) {
     const idx = tickets.findIndex(t => t.id === bewerkTicketId);
-    tickets[idx] = { ...tickets[idx], subject, note, priority: huidigPrio, status, gewijzigd: new Date().toLocaleString('nl-NL') };
+    tickets[idx] = { ...tickets[idx], subject, note, priority: huidigPrio, status, rekening: huidigeMutatie.rekening || tickets[idx].rekening || '', tegenrekening: huidigeMutatie.tegenrekening || tickets[idx].tegenrekening || '', gewijzigd: new Date().toLocaleString('nl-NL') };
     toonNotificatie('✓ Ticket bijgewerkt');
   } else {
-    tickets.push({ id: volgendTicketNummer(), mutatieId: huidigeMutatie.id, mutatieOmschrijving: huidigeMutatie.omschrijving, subject, note, priority: huidigPrio, status, aangemaaktISO: new Date().toISOString() });
+    tickets.push({ id: volgendTicketNummer(), mutatieId: huidigeMutatie.id, mutatieOmschrijving: huidigeMutatie.omschrijving, rekening: huidigeMutatie.rekening || '', tegenrekening: huidigeMutatie.tegenrekening || '', subject, note, priority: huidigPrio, status, aangemaaktISO: new Date().toISOString() });
     toonNotificatie('✓ Ticket aangemaakt');
   }
   localStorage.setItem('bt_tickets', JSON.stringify(tickets));
