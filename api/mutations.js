@@ -43,11 +43,12 @@ module.exports = async function handler(req, res) {
     });
     const limit = req.query.limit || 100;
     const offset = req.query.offset || 0;
-    const dateFrom = req.query.dateFrom ? '&date=%3E%3D' + req.query.dateFrom : '';
-    const dateTo = req.query.dateTo ? '&date=%3C%3D' + req.query.dateTo : '';
+    const dateFilter = req.query.dateFrom && req.query.dateTo 
+  ? '&date=%3E%3D' + req.query.dateFrom + '&date=%3C%3D' + req.query.dateTo 
+  : (req.query.dateFrom ? '&date=%3E%3D' + req.query.dateFrom : '');
     const mutRes = await doRequest({
       hostname: 'api.e-boekhouden.nl',
-      path: '/v1/mutation?limit=' + limit + '&offset=' + offset + dateFrom + dateTo,
+      path: '/v1/mutation?limit=' + limit + '&offset=' + offset + dateFilter,
       method: 'GET',
       headers: authHeaders
     }, null);
