@@ -308,7 +308,7 @@ async function laadMutaties() {
   }
   const van = normaliseerDatum(document.getElementById('filterVan') ? document.getElementById('filterVan').value : '');
   const tot = normaliseerDatum(document.getElementById('filterTot') ? document.getElementById('filterTot').value : '');
-  let url = instellingen.proxyUrl + '/api/mutations?limit=100&offset=0&_=' + Date.now();';
+  let url = instellingen.proxyUrl + '/api/mutations?limit=100&offset=0&_=' + Date.now()';
   if (van) url += '&dateFrom=' + van;
   if (tot) url += '&dateTo=' + tot;
 
