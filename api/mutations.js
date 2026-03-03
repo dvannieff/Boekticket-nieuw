@@ -45,6 +45,12 @@ module.exports = async function handler(req, res) {
     const offset = req.query.offset || 0;
     const dateFilter = req.query.dateFrom && req.query.dateTo 
   ? '&date=%3E%3D' + req.query.dateFrom + '&date=%3C%3D' + req.query.dateTo 
+
+      const pad = '/v1/mutation?limit=' + limit + '&offset=' + offset + dateFilter;
+console.log('API pad:', pad);
+path: pad,
+
+      
   : (req.query.dateFrom ? '&date=%3E%3D' + req.query.dateFrom : '');
     const mutRes = await doRequest({
       hostname: 'api.e-boekhouden.nl',
