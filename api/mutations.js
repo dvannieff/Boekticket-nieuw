@@ -52,7 +52,9 @@ module.exports = async function handler(req, res) {
     const offset = req.query.offset || 0;
     const mutRes = await doRequest({
       hostname: 'api.e-boekhouden.nl',
-      path: '/v1/mutation?limit=' + limit + '&offset=' + offset,
+      const dateFrom = req.query.dateFrom ? '&date=>' + req.query.dateFrom : '';
+      const dateTo = req.query.dateTo ? '&date=<' + req.query.dateTo : '';
+      path: '/v1/mutation?limit=' + limit + '&offset=' + offset + dateFrom + dateTo,
       method: 'GET',
       headers: authHeaders
     }, null);
