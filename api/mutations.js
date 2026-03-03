@@ -43,8 +43,8 @@ module.exports = async function handler(req, res) {
     });
     const limit = req.query.limit || 100;
     const offset = req.query.offset || 0;
-    const dateFrom = req.query.dateFrom ? '&date=>=' + req.query.dateFrom : '';
-    const dateTo = req.query.dateTo ? '&date=<=' + req.query.dateTo : '';
+    const dateFrom = req.query.dateFrom ? '&date=%3E%3D' + req.query.dateFrom : '';
+    const dateTo = req.query.dateTo ? '&date=%3C%3D' + req.query.dateTo : '';
     const mutRes = await doRequest({
       hostname: 'api.e-boekhouden.nl',
       path: '/v1/mutation?limit=' + limit + '&offset=' + offset + dateFrom + dateTo,
