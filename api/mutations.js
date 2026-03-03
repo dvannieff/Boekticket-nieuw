@@ -14,7 +14,8 @@ function doRequest(options, body) {
 }
 
 module.exports = async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
+ res.setHeader('Access-Control-Allow-Origin', '*');
+ res.setHeader('Cache-Control', 'no-store');
   const token = process.env.EBOEKHOUDEN_TOKEN;
   if (!token) { res.status(500).json({ error: 'Token ontbreekt' }); return; }
   try {
