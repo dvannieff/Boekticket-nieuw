@@ -299,8 +299,15 @@ async function laadMutaties() {
   content.innerHTML = '<div class="loading"><div class="spinner"></div>Mutaties ophalen...</div>';
 
   // Periode filter
-  const van = document.getElementById('filterVan') ? document.getElementById('filterVan').value : '';
-  const tot = document.getElementById('filterTot') ? document.getElementById('filterTot').value : '';
+  function normaliseerDatum(val) {
+    if (!val) return '';
+    if (/^\d{2}-\d{2}-\d{4}$/.test(val)) {
+      const p = val.split('-'); return p[2] + '-' + p[1] + '-' + p[0];
+    }
+    return val;
+  }
+  const van = normaliseerDatum(document.getElementById('filterVan') ? document.getElementById('filterVan').value : '');
+  const tot = normaliseerDatum(document.getElementById('filterTot') ? document.getElementById('filterTot').value : '');
   let url = instellingen.proxyUrl + '/api/mutations?limit=100&offset=0';
   if (van) url += '&dateFrom=' + van;
   if (tot) url += '&dateTo=' + tot;
