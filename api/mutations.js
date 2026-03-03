@@ -14,8 +14,8 @@ function doRequest(options, body) {
 }
 
 module.exports = async function handler(req, res) {
- res.setHeader('Access-Control-Allow-Origin', '*');
- res.setHeader('Cache-Control', 'no-store');
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Cache-Control', 'no-store');
   const token = process.env.EBOEKHOUDEN_TOKEN;
   if (!token) { res.status(500).json({ error: 'Token ontbreekt' }); return; }
   try {
@@ -42,16 +42,9 @@ module.exports = async function handler(req, res) {
     ledgers.forEach(function(l) {
       ledgerMap[l.id] = l.code || String(l.id);
     });
-    const limit = req.query.limit || 100;
-    const offset = req.query.offset || 0;
-    const dateFilter = req.query.dateFrom && req.query.dateTo
-      ? '&date=%3E%3D' + req.query.dateFrom + '&date=%3C%3D' + req.query.dateTo
-      : (req.query.dateFrom ? '&date=%3E%3D' + req.query.dateFrom : '');
-    const pad = '/v1/mutation?limit=' + limit + '&offset=' + offset + dateFilter;
-    console.log('API pad:', pad);
     const mutRes = await doRequest({
       hostname: 'api.e-boekhouden.nl',
-      path: pad,
+      path: '/v1/mutation?limit=500&offset=0',
       method: 'GET',
       headers: authHeaders
     }, null);
@@ -61,7 +54,14 @@ module.exports = async function handler(req, res) {
       m.ledgerCode = ledgerMap[m.ledgerId] || String(m.ledgerId || '');
       m.counterLedgerCode = ledgerMap[m.counterLedgerId] || String(m.counterLedgerId || '');
     });
-    res.status(200).json({ items: items, ledgerMap: ledgerMap });
+    const gefilterd = items.filter(function(m) {
+      if (!req.query.dateFrom && !req.query.dateTo) return true;
+      var datum = (m.date || '').substring(0, 10);
+      if (req.query.dateFrom && datum < req.query.dateFrom) return false;
+      if (req.query.dateTo && datum > req.query.dateTo) return false;
+      return true;
+    });
+    res.status(200).json({ items: gefilterd, ledgerMap: ledgerMap });
   } catch(e) {
     res.status(500).json({ error: e.message });
   }
