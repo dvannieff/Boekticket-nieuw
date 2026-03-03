@@ -97,6 +97,7 @@
   .filter-bar{display:flex;gap:6px;flex-wrap:wrap;}
   .filter-btn{padding:5px 12px;border-radius:20px;font-family:'DM Mono',monospace;font-size:11px;cursor:pointer;border:1px solid var(--border);background:var(--surface2);color:var(--muted);transition:all 0.15s;}
   .filter-btn.active{border-color:var(--accent);color:var(--accent);background:rgba(79,255,176,0.08);}
+  input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(0.5);}
 </style>
 </head>
 <body>
@@ -123,9 +124,9 @@
     <div class="toolbar" style="margin-top:-8px;margin-bottom:12px;">
       <div class="toolbar-left">
         <label style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;">Van</label>
-        <input type="date" id="filterVan" class="search-box" style="width:150px">
+        <input type="date" id="filterVan" class="search-box" style="width:160px">
         <label style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;">Tot</label>
-        <input type="date" id="filterTot" class="search-box" style="width:150px">
+        <input type="date" id="filterTot" class="search-box" style="width:160px">
         <button class="btn btn-secondary btn-sm" onclick="laadMutaties()">↻ Toepassen</button>
       </div>
     </div>
@@ -213,12 +214,12 @@
 </div>
 
 <script>
-let instellingen = JSON.parse(localStorage.getItem('bt_settings') || '{}');
-let tickets = JSON.parse(localStorage.getItem('bt_tickets') || '[]');
-let statussen = JSON.parse(localStorage.getItem('bt_statussen') || '["Open","In behandeling","Afgerond"]');
-let ticketTeller = parseInt(localStorage.getItem('bt_teller') || '0');
-let mutaties = [];
-let huidigeMutatie = null, huidigPrio = 'laag', bewerkTicketId = null, ticketFilter = 'alle';
+var instellingen = JSON.parse(localStorage.getItem('bt_settings') || '{}');
+var tickets = JSON.parse(localStorage.getItem('bt_tickets') || '[]');
+var statussen = JSON.parse(localStorage.getItem('bt_statussen') || '["Open","In behandeling","Afgerond"]');
+var ticketTeller = parseInt(localStorage.getItem('bt_teller') || '0');
+var mutaties = [];
+var huidigeMutatie = null, huidigPrio = 'laag', bewerkTicketId = null, ticketFilter = 'alle';
 
 function tktPrefix() {
   return (localStorage.getItem('bt_prefix') || 'TKT') + '-';
@@ -231,51 +232,57 @@ function volgendTicketNummer() {
 }
 
 function slaNummeringOp() {
-  const prefix = document.getElementById('tktPrefix').value.trim() || 'TKT';
-  const start = parseInt(document.getElementById('tktStartnummer').value) || 1;
+  var prefix = document.getElementById('tktPrefix').value.trim() || 'TKT';
+  var start = parseInt(document.getElementById('tktStartnummer').value) || 1;
   localStorage.setItem('bt_prefix', prefix);
   ticketTeller = start - 1;
   localStorage.setItem('bt_teller', String(ticketTeller));
   document.getElementById('tktStartnummer').value = start;
-  toonNotificatie('✓ Nummering opgeslagen — volgend ticket: ' + tktPrefix() + String(start).padStart(4,'0'));
+  toonNotificatie('Nummering opgeslagen — volgend ticket: ' + tktPrefix() + String(start).padStart(4,'0'));
 }
 
 function formatDatum(d) {
-  const dt = new Date(d);
-  if (isNaN(dt)) return d;
+  var dt = new Date(d);
+  if (isNaN(dt)) return d || '';
   return dt.toLocaleDateString('nl-NL', {day:'2-digit',month:'2-digit',year:'numeric'}) + ' ' + dt.toLocaleTimeString('nl-NL', {hour:'2-digit',minute:'2-digit'});
 }
 
-window.onload = () => {
+window.onload = function() {
   // Standaard periode: huidige maand
-  const nu = new Date();
-  const eersteVanMaand = nu.getFullYear() + '-' + String(nu.getMonth()+1).padStart(2,'0') + '-01';
-  const vandaag = nu.toISOString().substring(0,10);
-  setTimeout(() => {
-    if (document.getElementById('filterVan')) document.getElementById('filterVan').value = eersteVanMaand;
-    if (document.getElementById('filterTot')) document.getElementById('filterTot').value = vandaag;
-  }, 50);
-  // Migreer oude tickets met timestamp-ID naar TKT-formaat
-  let gewijzigd = false;
-  tickets.forEach(t => {
+  var nu = new Date();
+  var eersteVanMaand = nu.getFullYear() + '-' + String(nu.getMonth()+1).padStart(2,'0') + '-01';
+  var vandaag = nu.toISOString().substring(0,10);
+  document.getElementById('filterVan').value = eersteVanMaand;
+  document.getElementById('filterTot').value = vandaag;
+
+  // Migreer oude tickets met timestamp-ID
+  var gewijzigd = false;
+  tickets.forEach(function(t) {
     if (t.id && /^TKT-\d{10,}$/.test(t.id)) {
       ticketTeller++;
       t.id = tktPrefix() + String(ticketTeller).padStart(4, '0');
       gewijzigd = true;
     }
   });
-  if (gewijzigd) { localStorage.setItem('bt_tickets', JSON.stringify(tickets)); localStorage.setItem('bt_teller', String(ticketTeller)); }
+  if (gewijzigd) {
+    localStorage.setItem('bt_tickets', JSON.stringify(tickets));
+    localStorage.setItem('bt_teller', String(ticketTeller));
+  }
 
-  if (instellingen.proxyUrl) { document.getElementById('proxyUrl').value = instellingen.proxyUrl; laadMutaties(); }
-  const prefix = localStorage.getItem('bt_prefix') || 'TKT';
-  document.getElementById('tktPrefix').value = prefix;
+  if (instellingen.proxyUrl) {
+    document.getElementById('proxyUrl').value = instellingen.proxyUrl;
+    laadMutaties();
+  }
+  document.getElementById('tktPrefix').value = localStorage.getItem('bt_prefix') || 'TKT';
   document.getElementById('tktStartnummer').value = ticketTeller + 1;
-  renderStatusList(); renderFilterBar(); renderTickets();
+  renderStatusList();
+  renderFilterBar();
+  renderTickets();
 };
 
 function showTab(naam, el) {
-  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
-  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(function(p) { p.classList.remove('active'); });
+  document.querySelectorAll('.tab').forEach(function(t) { t.classList.remove('active'); });
   document.getElementById('panel-' + naam).classList.add('active');
   if (el) el.classList.add('active');
 }
@@ -286,8 +293,8 @@ function updateStatus(ok, tekst) {
 }
 
 function verbindViaProxy() {
-  const url = document.getElementById('proxyUrl').value.trim().replace(/\/$/, '');
-  if (!url.startsWith('http')) { toonNotificatie('⚠️ Vul een geldige URL in', true); return; }
+  var url = document.getElementById('proxyUrl').value.trim().replace(/\/$/, '');
+  if (!url.startsWith('http')) { toonNotificatie('Vul een geldige URL in', true); return; }
   instellingen.proxyUrl = url;
   localStorage.setItem('bt_settings', JSON.stringify(instellingen));
   laadMutaties();
@@ -295,43 +302,36 @@ function verbindViaProxy() {
 
 async function laadMutaties() {
   if (!instellingen.proxyUrl) { laadDemoData(); return; }
-  const content = document.getElementById('mutatiesContent');
+  var content = document.getElementById('mutatiesContent');
   content.innerHTML = '<div class="loading"><div class="spinner"></div>Mutaties ophalen...</div>';
 
-  // Periode filter
-  function normaliseerDatum(val) {
-    if (!val) return '';
-    if (/^\d{2}-\d{2}-\d{4}$/.test(val)) {
-      const p = val.split('-'); return p[2] + '-' + p[1] + '-' + p[0];
-    }
-    return val;
-  }
-  const van = normaliseerDatum(document.getElementById('filterVan') ? document.getElementById('filterVan').value : '');
-  const tot = normaliseerDatum(document.getElementById('filterTot') ? document.getElementById('filterTot').value : '');
-  let url = instellingen.proxyUrl + '/api/mutations?limit=100&offset=0&_=' + Date.now();
+  var van = document.getElementById('filterVan').value;
+  var tot = document.getElementById('filterTot').value;
+  var url = instellingen.proxyUrl + '/api/mutations?_=' + Date.now();
   if (van) url += '&dateFrom=' + van;
   if (tot) url += '&dateTo=' + tot;
 
   try {
-    const resp = await fetch(url);
+    var resp = await fetch(url);
     if (!resp.ok) throw new Error('HTTP ' + resp.status);
-    const data = await resp.json();
-    const items = Array.isArray(data) ? data : (data.items || data.mutations || []);
-    mutaties = items.map(m => ({
-      id: String(m.id || ''),
-      datum: (m.date || '').substring(0, 10),
-      omschrijving: m.description || m.invoiceNumber || '(geen omschrijving)',
-      bedrag: parseFloat(m.amount != null ? m.amount : 0),
-      rekening: String(m.ledgerCode || m.ledgerId || ''),
-      tegenrekening: '',
-    }));
+    var data = await resp.json();
+    var items = Array.isArray(data) ? data : (data.items || data.mutations || []);
+    mutaties = items.map(function(m) {
+      return {
+        id: String(m.id || ''),
+        datum: (m.date || '').substring(0, 10),
+        omschrijving: m.description || m.invoiceNumber || '(geen omschrijving)',
+        bedrag: parseFloat(m.amount != null ? m.amount : 0),
+        rekening: String(m.ledgerCode || m.ledgerId || ''),
+        tegenrekening: ''
+      };
+    });
     window.ledgerMap = data.ledgerMap || {};
-    updateStatus(true, 'Verbonden'); renderMutaties(); toonNotificatie('✓ ' + mutaties.length + ' mutaties geladen');
+    updateStatus(true, 'Verbonden');
+    renderMutaties();
+    toonNotificatie(mutaties.length + ' mutaties geladen');
     showTab('mutaties', document.querySelector('.tab'));
-
-    // Progressive loading tegenrekeningen
     laadTegenrekeningenProgressief();
-
   } catch(e) {
     content.innerHTML = '<div class="empty-state"><div class="icon">⚠️</div><p><strong>Verbinding mislukt</strong><br><span style="color:var(--danger);font-size:12px">' + e.message + '</span></p></div>';
     updateStatus(false, 'Verbindingsfout');
@@ -339,17 +339,16 @@ async function laadMutaties() {
 }
 
 async function laadTegenrekeningenProgressief() {
-  for (let i = 0; i < mutaties.length; i++) {
-    const m = mutaties[i];
+  for (var i = 0; i < mutaties.length; i++) {
+    var m = mutaties[i];
     if (!m.id || m.id.startsWith('MUT-')) continue;
     try {
-      const resp = await fetch(instellingen.proxyUrl + '/api/mutationdetail?id=' + parseInt(m.id));
-      const detail = JSON.parse(await resp.text());
+      var resp = await fetch(instellingen.proxyUrl + '/api/mutationdetail?id=' + parseInt(m.id));
+      var detail = JSON.parse(await resp.text());
       if (detail.rows && detail.rows.length > 0) {
-        const tegenId = detail.rows[0].ledgerId;
-        m.tegenrekening = window.ledgerMap[tegenId] || String(tegenId);
-        // Update alleen de tegenrekening cel in de tabel
-        const cel = document.getElementById('tegen-' + m.id);
+        var tegenId = detail.rows[0].ledgerId;
+        m.tegenrekening = (window.ledgerMap && window.ledgerMap[tegenId]) ? window.ledgerMap[tegenId] : String(tegenId);
+        var cel = document.getElementById('tegen-' + m.id);
         if (cel) cel.textContent = m.tegenrekening;
       }
     } catch(e) { /* stil verder */ }
@@ -358,60 +357,70 @@ async function laadTegenrekeningenProgressief() {
 
 function laadDemoData() {
   mutaties = [
-    { id: 'MUT-001', datum: '2024-01-15', omschrijving: 'Betaling Leverancier BV – Factuur 2024-089', bedrag: -2450.00, rekening: '1300', tegenrekening: '4000' },
+    { id: 'MUT-001', datum: '2024-01-15', omschrijving: 'Betaling Leverancier BV', bedrag: -2450.00, rekening: '1300', tegenrekening: '4000' },
     { id: 'MUT-002', datum: '2024-01-18', omschrijving: 'Ontvangst Klant De Jong Holding', bedrag: 5800.00, rekening: '1300', tegenrekening: '8000' },
     { id: 'MUT-003', datum: '2024-01-22', omschrijving: 'Automatische incasso Belastingdienst BTW', bedrag: -1890.00, rekening: '1900', tegenrekening: '1600' },
-    { id: 'MUT-004', datum: '2024-02-05', omschrijving: 'Onbekende bijschrijving – nader te onderzoeken', bedrag: 340.00, rekening: '1300', tegenrekening: '' },
+    { id: 'MUT-004', datum: '2024-02-05', omschrijving: 'Onbekende bijschrijving', bedrag: 340.00, rekening: '1300', tegenrekening: '' }
   ];
-  updateStatus(true, 'Demo-modus'); renderMutaties(); toonNotificatie('▶ Demo-data geladen');
+  updateStatus(true, 'Demo-modus');
+  renderMutaties();
+  toonNotificatie('Demo-data geladen');
   showTab('mutaties', document.querySelector('.tab'));
 }
 
 function renderMutaties(data) {
-  const lijst = data || mutaties;
-  const content = document.getElementById('mutatiesContent');
+  var lijst = data || mutaties;
+  var content = document.getElementById('mutatiesContent');
   document.getElementById('countBadge').textContent = lijst.length + ' mutaties';
   if (!lijst.length) { content.innerHTML = '<div class="empty-state"><div class="icon">📭</div><p>Geen mutaties gevonden.</p></div>'; return; }
-  const rows = lijst.map(m => {
-    const mt = tickets.filter(t => t.mutatieId === m.id);
-    const pos = m.bedrag >= 0;
-    const pills = mt.map(t => '<div class="ticket-pill" onclick="openBewerkTicket(\'' + t.id + '\')"><span class="pill-name">🎫 <strong>' + t.id + '</strong> ' + (t.subject.length > 18 ? t.subject.substring(0,18)+'…' : t.subject) + '</span><span class="pill-status"> · ' + (t.status || statussen[0]) + ' · ' + formatDatum(t.aangemaaktISO || t.aangemaakt) + '</span></div>').join('');
+  var rows = lijst.map(function(m) {
+    var mt = tickets.filter(function(t) { return t.mutatieId === m.id; });
+    var pos = m.bedrag >= 0;
+    var pills = mt.map(function(t) {
+      return '<div class="ticket-pill" onclick="openBewerkTicket(\'' + t.id + '\')"><span class="pill-name">🎫 <strong>' + t.id + '</strong> ' + (t.subject.length > 18 ? t.subject.substring(0,18)+'…' : t.subject) + '</span><span class="pill-status"> · ' + (t.status || statussen[0]) + ' · ' + formatDatum(t.aangemaaktISO || t.aangemaakt) + '</span></div>';
+    }).join('');
     return '<tr><td><span class="mutation-id">' + m.id + '</span></td><td style="white-space:nowrap">' + m.datum + '</td><td>' + m.omschrijving + '</td><td style="font-size:11px;color:var(--muted)">' + (m.rekening||'—') + '</td><td style="font-size:11px;color:var(--muted)" id="tegen-' + m.id + '">' + (m.tegenrekening||'…') + '</td><td class="amount ' + (pos?'positive':'negative') + '" style="white-space:nowrap">€ ' + (pos?'+':'') + m.bedrag.toFixed(2).replace('.',',') + '</td><td><div class="ticket-stack">' + pills + '<button class="btn btn-secondary btn-sm" onclick=\'openNieuwTicket(' + JSON.stringify(m) + ')\' style="align-self:flex-start;' + (mt.length?'margin-top:4px':'') + '">+ Ticket</button></div></td></tr>';
   }).join('');
   content.innerHTML = '<table><thead><tr><th>ID</th><th>Datum</th><th>Factuurnummer</th><th>Rekening</th><th>Tegenrekening</th><th>Bedrag</th><th>Tickets</th></tr></thead><tbody>' + rows + '</tbody></table>';
 }
 
 function filterMutaties() {
-  const q = document.getElementById('searchBox').value.toLowerCase();
-  renderMutaties(mutaties.filter(m => m.omschrijving.toLowerCase().includes(q) || m.id.toLowerCase().includes(q) || m.datum.includes(q)));
+  var q = document.getElementById('searchBox').value.toLowerCase();
+  renderMutaties(mutaties.filter(function(m) { return m.omschrijving.toLowerCase().includes(q) || m.id.toLowerCase().includes(q) || m.datum.includes(q); }));
 }
 
 function renderStatusList() {
-  document.getElementById('statusList').innerHTML = statussen.map((s, i) => '<div class="status-item"><span class="drag-handle">⠿</span><input type="text" value="' + s + '" onchange="statussen[' + i + ']=this.value"><button class="del-btn" onclick="verwijderStatus(' + i + ')">✕</button></div>').join('');
+  document.getElementById('statusList').innerHTML = statussen.map(function(s, i) {
+    return '<div class="status-item"><span class="drag-handle">⠿</span><input type="text" value="' + s + '" onchange="statussen[' + i + ']=this.value"><button class="del-btn" onclick="verwijderStatus(' + i + ')">✕</button></div>';
+  }).join('');
 }
 
 function voegStatusToe() {
-  const input = document.getElementById('nieuweStatus');
-  const val = input.value.trim(); if (!val) return;
-  statussen.push(val); input.value = ''; renderStatusList(); toonNotificatie('✓ Status "' + val + '" toegevoegd');
+  var input = document.getElementById('nieuweStatus');
+  var val = input.value.trim(); if (!val) return;
+  statussen.push(val); input.value = ''; renderStatusList(); toonNotificatie('Status "' + val + '" toegevoegd');
 }
 
 function verwijderStatus(i) {
-  if (statussen.length <= 1) { toonNotificatie('⚠️ Minimaal één status vereist', true); return; }
+  if (statussen.length <= 1) { toonNotificatie('Minimaal één status vereist', true); return; }
   statussen.splice(i, 1); renderStatusList();
 }
 
 function slaStatussenOp() {
   localStorage.setItem('bt_statussen', JSON.stringify(statussen));
-  renderFilterBar(); renderTickets(); toonNotificatie('✓ Statussen opgeslagen');
+  renderFilterBar(); renderTickets(); toonNotificatie('Statussen opgeslagen');
 }
 
 function vulStatusDropdown(huidig) {
-  document.getElementById('ticketStatus').innerHTML = statussen.map(s => '<option value="' + s + '"' + (s === huidig ? ' selected' : '') + '>' + s + '</option>').join('');
+  document.getElementById('ticketStatus').innerHTML = statussen.map(function(s) {
+    return '<option value="' + s + '"' + (s === huidig ? ' selected' : '') + '>' + s + '</option>';
+  }).join('');
 }
 
 function renderFilterBar() {
-  document.getElementById('ticketFilterBar').innerHTML = '<button class="filter-btn ' + (ticketFilter==='alle'?'active':'') + '" onclick="filterTickets(\'alle\',this)">Alle</button>' + statussen.map(s => '<button class="filter-btn ' + (ticketFilter===s?'active':'') + '" onclick="filterTickets(\'' + s + '\',this)">' + s + '</button>').join('');
+  document.getElementById('ticketFilterBar').innerHTML = '<button class="filter-btn ' + (ticketFilter==='alle'?'active':'') + '" onclick="filterTickets(\'alle\',this)">Alle</button>' + statussen.map(function(s) {
+    return '<button class="filter-btn ' + (ticketFilter===s?'active':'') + '" onclick="filterTickets(\'' + s + '\',this)">' + s + '</button>';
+  }).join('');
 }
 
 async function openNieuwTicket(m) {
@@ -423,30 +432,25 @@ async function openNieuwTicket(m) {
   selectPriority('laag'); vulStatusDropdown(statussen[0]);
   document.getElementById('modalOverlay').style.display = 'flex';
 
-  // Tegenrekening ophalen op de achtergrond
   if (instellingen.proxyUrl && m.id && !String(m.id).startsWith('MUT-')) {
     try {
-      const resp = await fetch(instellingen.proxyUrl + '/api/mutationdetail?id=' + parseInt(m.id));
-      const tekst = await resp.text();
-      const detail = JSON.parse(tekst);
+      var resp = await fetch(instellingen.proxyUrl + '/api/mutationdetail?id=' + parseInt(m.id));
+      var detail = JSON.parse(await resp.text());
       if (detail.rows && detail.rows.length > 0) {
-        const tegenId = detail.rows[0].ledgerId;
-        // Zoek code op in mutaties ledgerMap (al opgeslagen bij laden)
-        const tegenCode = window.ledgerMap ? (window.ledgerMap[tegenId] || String(tegenId)) : String(tegenId);
-        // Update mutatie object en toon in modalRef
+        var tegenId = detail.rows[0].ledgerId;
+        var tegenCode = (window.ledgerMap && window.ledgerMap[tegenId]) ? window.ledgerMap[tegenId] : String(tegenId);
         m.tegenrekening = tegenCode;
         huidigeMutatie = m;
         document.getElementById('modalRef').textContent = '📎 ' + m.id + ' — ' + m.omschrijving + ' | rekening: ' + (m.rekening||'?') + ' / ' + tegenCode;
-        // Ook opslaan in mutaties array
-        const idx = mutaties.findIndex(x => x.id === m.id);
-        if (idx >= 0) { mutaties[idx].tegenrekening = tegenCode; renderMutaties(); }
+        var idx = mutaties.findIndex(function(x) { return x.id === m.id; });
+        if (idx >= 0) { mutaties[idx].tegenrekening = tegenCode; var cel = document.getElementById('tegen-' + m.id); if (cel) cel.textContent = tegenCode; }
       }
     } catch(e) { console.log('Tegenrekening ophalen mislukt:', e); }
   }
 }
 
 async function openBewerkTicket(id) {
-  const t = tickets.find(x => x.id === id); if (!t) return;
+  var t = tickets.find(function(x) { return x.id === id; }); if (!t) return;
   bewerkTicketId = id; huidigeMutatie = { id: t.mutatieId, omschrijving: t.mutatieOmschrijving };
   document.getElementById('modalTitle').textContent = 'Ticket bewerken · ' + t.id;
   document.getElementById('modalRef').textContent = '📎 ' + t.mutatieId + ' — ' + t.mutatieOmschrijving;
@@ -455,19 +459,17 @@ async function openBewerkTicket(id) {
   selectPriority(t.priority || 'laag'); vulStatusDropdown(t.status || statussen[0]);
   document.getElementById('modalOverlay').style.display = 'flex';
 
-  // Tegenrekening ophalen
-  const mutatieId = parseInt(t.mutatieId);
-  if (instellingen.proxyUrl && mutatieId) {
+  if (instellingen.proxyUrl && t.mutatieId) {
     try {
-      const resp = await fetch(instellingen.proxyUrl + '/api/mutationdetail?id=' + mutatieId);
-      const detail = JSON.parse(await resp.text());
+      var resp = await fetch(instellingen.proxyUrl + '/api/mutationdetail?id=' + parseInt(t.mutatieId));
+      var detail = JSON.parse(await resp.text());
       if (detail.rows && detail.rows.length > 0) {
-        const tegenId = detail.rows[0].ledgerId;
-        const tegenCode = window.ledgerMap ? (window.ledgerMap[tegenId] || String(tegenId)) : String(tegenId);
-        const rekening = mutaties.find(m => m.id === t.mutatieId);
-        huidigeMutatie.rekening = rekening ? rekening.rekening : '';
+        var tegenId = detail.rows[0].ledgerId;
+        var tegenCode = (window.ledgerMap && window.ledgerMap[tegenId]) ? window.ledgerMap[tegenId] : String(tegenId);
+        var rekObj = mutaties.find(function(x) { return x.id === t.mutatieId; });
+        huidigeMutatie.rekening = rekObj ? rekObj.rekening : '';
         huidigeMutatie.tegenrekening = tegenCode;
-        document.getElementById('modalRef').textContent = '📎 ' + t.mutatieId + ' — ' + t.mutatieOmschrijving + ' | rekening: ' + (rekening ? rekening.rekening : '?') + ' / ' + tegenCode;
+        document.getElementById('modalRef').textContent = '📎 ' + t.mutatieId + ' — ' + t.mutatieOmschrijving + ' | rekening: ' + (huidigeMutatie.rekening||'?') + ' / ' + tegenCode;
       }
     } catch(e) { console.log('Tegenrekening ophalen mislukt:', e); }
   }
@@ -478,21 +480,21 @@ function sluitModalDirect() { document.getElementById('modalOverlay').style.disp
 
 function selectPriority(p) {
   huidigPrio = p;
-  ['laag','midden','hoog'].forEach(x => { document.getElementById('prio-'+x).className = 'selector-option' + (x === p ? ' sel-'+x : ''); });
+  ['laag','midden','hoog'].forEach(function(x) { document.getElementById('prio-'+x).className = 'selector-option' + (x === p ? ' sel-'+x : ''); });
 }
 
 function slaTicketOp() {
-  const subject = document.getElementById('ticketSubject').value.trim();
-  const note = document.getElementById('ticketNote').value.trim();
-  const status = document.getElementById('ticketStatus').value;
-  if (!subject) { toonNotificatie('⚠️ Vul een onderwerp in', true); return; }
+  var subject = document.getElementById('ticketSubject').value.trim();
+  var note = document.getElementById('ticketNote').value.trim();
+  var status = document.getElementById('ticketStatus').value;
+  if (!subject) { toonNotificatie('Vul een onderwerp in', true); return; }
   if (bewerkTicketId) {
-    const idx = tickets.findIndex(t => t.id === bewerkTicketId);
-    tickets[idx] = { ...tickets[idx], subject, note, priority: huidigPrio, status, rekening: huidigeMutatie.rekening || tickets[idx].rekening || '', tegenrekening: huidigeMutatie.tegenrekening || tickets[idx].tegenrekening || '', gewijzigd: new Date().toLocaleString('nl-NL') };
-    toonNotificatie('✓ Ticket bijgewerkt');
+    var idx = tickets.findIndex(function(t) { return t.id === bewerkTicketId; });
+    tickets[idx] = Object.assign({}, tickets[idx], { subject: subject, note: note, priority: huidigPrio, status: status, gewijzigd: new Date().toLocaleString('nl-NL') });
+    toonNotificatie('Ticket bijgewerkt');
   } else {
-    tickets.push({ id: volgendTicketNummer(), mutatieId: huidigeMutatie.id, mutatieOmschrijving: huidigeMutatie.omschrijving, rekening: huidigeMutatie.rekening || '', tegenrekening: huidigeMutatie.tegenrekening || '', subject, note, priority: huidigPrio, status, aangemaaktISO: new Date().toISOString() });
-    toonNotificatie('✓ Ticket aangemaakt');
+    tickets.push({ id: volgendTicketNummer(), mutatieId: huidigeMutatie.id, mutatieOmschrijving: huidigeMutatie.omschrijving, rekening: huidigeMutatie.rekening || '', tegenrekening: huidigeMutatie.tegenrekening || '', subject: subject, note: note, priority: huidigPrio, status: status, aangemaaktISO: new Date().toISOString() });
+    toonNotificatie('Ticket aangemaakt');
   }
   localStorage.setItem('bt_tickets', JSON.stringify(tickets));
   sluitModalDirect(); renderTickets(); renderMutaties();
@@ -500,33 +502,35 @@ function slaTicketOp() {
 
 function verwijderTicket(id) {
   if (!confirm('Weet je zeker dat je dit ticket wilt verwijderen?')) return;
-  tickets = tickets.filter(t => t.id !== id);
+  tickets = tickets.filter(function(t) { return t.id !== id; });
   localStorage.setItem('bt_tickets', JSON.stringify(tickets));
-  renderTickets(); renderMutaties(); toonNotificatie('🗑 Ticket verwijderd');
+  renderTickets(); renderMutaties(); toonNotificatie('Ticket verwijderd');
 }
 
 function filterTickets(filter, el) {
   ticketFilter = filter;
-  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.filter-btn').forEach(function(b) { b.classList.remove('active'); });
   if (el) el.classList.add('active'); renderTickets();
 }
 
 function renderTickets() {
-  const grid = document.getElementById('ticketsGrid');
-  const gefilterd = ticketFilter === 'alle' ? tickets : tickets.filter(t => (t.status || statussen[0]) === ticketFilter);
+  var grid = document.getElementById('ticketsGrid');
+  var gefilterd = ticketFilter === 'alle' ? tickets : tickets.filter(function(t) { return (t.status || statussen[0]) === ticketFilter; });
   document.getElementById('ticketCountBadge').textContent = tickets.length + ' ticket' + (tickets.length !== 1 ? 's' : '');
   if (!gefilterd.length) {
     grid.innerHTML = '<div class="empty-state"><div class="icon">🎫</div><p>' + (tickets.length === 0 ? 'Nog geen tickets.<br>Ga naar <strong>Mutaties</strong> en klik "+ Ticket".' : 'Geen tickets met deze status.') + '</p></div>';
     return;
   }
-  grid.innerHTML = gefilterd.map(t => '<div class="ticket-card"><div class="ticket-header"><div class="ticket-meta"><div class="ticket-title">' + t.subject + '</div><div class="ticket-sub"><span style="color:var(--accent);font-weight:500">' + t.id + '</span><span>📎 ' + t.mutatieId + '</span><span>🕐 ' + formatDatum(t.aangemaaktISO || t.aangemaakt) + '</span>' + (t.gewijzigd ? '<span>✏️ ' + t.gewijzigd + '</span>' : '') + '</div><div class="ticket-badges"><span class="priority-badge priority-' + t.priority + '">' + t.priority + '</span><span class="status-badge">' + (t.status || statussen[0]) + '</span></div></div></div>' + (t.note ? '<div class="ticket-note">' + t.note + '</div>' : '<div class="ticket-note placeholder">Geen opmerking</div>') + '<div class="ticket-actions"><button class="btn btn-secondary btn-sm" onclick="openBewerkTicket(\'' + t.id + '\')">✏️ Bewerken</button><button class="btn btn-danger btn-sm" onclick="verwijderTicket(\'' + t.id + '\')">🗑 Verwijder</button></div></div>').join('');
+  grid.innerHTML = gefilterd.map(function(t) {
+    return '<div class="ticket-card"><div class="ticket-header"><div class="ticket-meta"><div class="ticket-title">' + t.subject + '</div><div class="ticket-sub"><span style="color:var(--accent);font-weight:500">' + t.id + '</span><span>📎 ' + t.mutatieId + '</span><span>🕐 ' + formatDatum(t.aangemaaktISO || t.aangemaakt) + '</span>' + (t.gewijzigd ? '<span>✏️ ' + t.gewijzigd + '</span>' : '') + '</div><div class="ticket-badges"><span class="priority-badge priority-' + t.priority + '">' + t.priority + '</span><span class="status-badge">' + (t.status || statussen[0]) + '</span></div></div></div>' + (t.note ? '<div class="ticket-note">' + t.note + '</div>' : '<div class="ticket-note placeholder">Geen opmerking</div>') + '<div class="ticket-actions"><button class="btn btn-secondary btn-sm" onclick="openBewerkTicket(\'' + t.id + '\')">✏️ Bewerken</button><button class="btn btn-danger btn-sm" onclick="verwijderTicket(\'' + t.id + '\')">🗑 Verwijder</button></div></div>';
+  }).join('');
 }
 
 function toonNotificatie(tekst, isErr) {
-  const el = document.createElement('div');
+  var el = document.createElement('div');
   el.className = 'notification' + (isErr ? ' err' : '');
   el.textContent = tekst; document.body.appendChild(el);
-  setTimeout(() => el.remove(), 2800);
+  setTimeout(function() { el.remove(); }, 2800);
 }
 </script>
 </body>
