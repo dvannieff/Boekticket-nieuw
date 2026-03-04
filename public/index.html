@@ -98,6 +98,11 @@
   .filter-btn{padding:5px 12px;border-radius:20px;font-family:'DM Mono',monospace;font-size:11px;cursor:pointer;border:1px solid var(--border);background:var(--surface2);color:var(--muted);transition:all 0.15s;}
   .filter-btn.active{border-color:var(--accent);color:var(--accent);background:rgba(79,255,176,0.08);}
   input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(0.5);}
+  th.sorteerbaar{cursor:pointer;user-select:none;}
+  th.sorteerbaar:hover{color:var(--text);}
+  th.sorteerbaar.actief{color:var(--accent);}
+  .sort-pijl{margin-left:4px;opacity:0.5;}
+  th.sorteerbaar.actief .sort-pijl{opacity:1;}
 </style>
 </head>
 <body>
@@ -220,6 +225,7 @@ var tickets = JSON.parse(localStorage.getItem('bt_tickets') || '[]');
 var statussen = JSON.parse(localStorage.getItem('bt_statussen') || '["Open","In behandeling","Afgerond"]');
 var ticketTeller = parseInt(localStorage.getItem('bt_teller') || '0');
 var mutaties = [];
+var sorteerKolom = 'id', sorteerRichting = 'asc';
 var huidigeMutatie = null, huidigPrio = 'laag', bewerkTicketId = null, ticketFilter = 'alle';
 
 function tktPrefix() {
@@ -246,6 +252,26 @@ function formatDatum(d) {
   var dt = new Date(d);
   if (isNaN(dt)) return d || '';
   return dt.toLocaleDateString('nl-NL', {day:'2-digit',month:'2-digit',year:'numeric'}) + ' ' + dt.toLocaleTimeString('nl-NL', {hour:'2-digit',minute:'2-digit'});
+}
+
+function sorteer(kolom) {
+  if (sorteerKolom === kolom) {
+    sorteerRichting = sorteerRichting === 'asc' ? 'desc' : 'asc';
+  } else {
+    sorteerKolom = kolom;
+    sorteerRichting = 'asc';
+  }
+  mutaties.sort(function(a, b) {
+    var av = a[kolom] || '';
+    var bv = b[kolom] || '';
+    if (kolom === 'bedrag') { av = parseFloat(av) || 0; bv = parseFloat(bv) || 0; }
+    else if (kolom === 'id') { av = parseInt(av) || 0; bv = parseInt(bv) || 0; }
+    else { av = String(av).toLowerCase(); bv = String(bv).toLowerCase(); }
+    if (av < bv) return sorteerRichting === 'asc' ? -1 : 1;
+    if (av > bv) return sorteerRichting === 'asc' ? 1 : -1;
+    return 0;
+  });
+  renderMutaties();
 }
 
 function setHaalJaar() {
@@ -389,7 +415,15 @@ function renderMutaties(data) {
     }).join('');
     return '<tr><td><span class="mutation-id">' + m.id + '</span></td><td style="white-space:nowrap">' + (m.datumNL || m.datum) + '</td><td>' + m.omschrijving + '</td><td style="font-size:11px;color:var(--muted)">' + (m.rekening||'—') + '</td><td style="font-size:11px;color:var(--muted)" id="tegen-' + m.id + '">' + (m.tegenrekening||'…') + '</td><td class="amount ' + (pos?'positive':'negative') + '" style="white-space:nowrap">€ ' + (pos?'+':'') + m.bedrag.toFixed(2).replace('.',',') + '</td><td><div class="ticket-stack">' + pills + '<button class="btn btn-secondary btn-sm" onclick=\'openNieuwTicket(' + JSON.stringify(m) + ')\' style="align-self:flex-start;' + (mt.length?'margin-top:4px':'') + '">+ Ticket</button></div></td></tr>';
   }).join('');
-  content.innerHTML = '<table><thead><tr><th>ID</th><th>Datum</th><th>Factuurnummer</th><th>Rekening</th><th>Tegenrekening</th><th>Bedrag</th><th>Tickets</th></tr></thead><tbody>' + rows + '</tbody></table>';
+  content.innerHTML = '<table><thead><tr>' +
+    '<th class="sorteerbaar' + (sorteerKolom==='id'?' actief':'') + '" onclick="sorteer('id')" >ID<span class="sort-pijl">' + (sorteerKolom==='id'?(sorteerRichting==='asc'?'↑':'↓'):'↕') + '</span></th>' +
+    '<th class="sorteerbaar' + (sorteerKolom==='datum'?' actief':'') + '" onclick="sorteer('datum')">Datum<span class="sort-pijl">' + (sorteerKolom==='datum'?(sorteerRichting==='asc'?'↑':'↓'):'↕') + '</span></th>' +
+    '<th>Factuurnummer</th>' +
+    '<th class="sorteerbaar' + (sorteerKolom==='rekening'?' actief':'') + '" onclick="sorteer('rekening')">Rekening<span class="sort-pijl">' + (sorteerKolom==='rekening'?(sorteerRichting==='asc'?'↑':'↓'):'↕') + '</span></th>' +
+    '<th>Tegenrekening</th>' +
+    '<th class="sorteerbaar' + (sorteerKolom==='bedrag'?' actief':'') + '" onclick="sorteer('bedrag')">Bedrag<span class="sort-pijl">' + (sorteerKolom==='bedrag'?(sorteerRichting==='asc'?'↑':'↓'):'↕') + '</span></th>' +
+    '<th>Tickets</th>' +
+    '</tr></thead><tbody>' + rows + '</tbody></table>';
 }
 
 function filterMutaties() {
