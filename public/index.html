@@ -415,15 +415,13 @@ function renderMutaties(data) {
     }).join('');
     return '<tr><td><span class="mutation-id">' + m.id + '</span></td><td style="white-space:nowrap">' + (m.datumNL || m.datum) + '</td><td>' + m.omschrijving + '</td><td style="font-size:11px;color:var(--muted)">' + (m.rekening||'—') + '</td><td style="font-size:11px;color:var(--muted)" id="tegen-' + m.id + '">' + (m.tegenrekening||'…') + '</td><td class="amount ' + (pos?'positive':'negative') + '" style="white-space:nowrap">€ ' + (pos?'+':'') + m.bedrag.toFixed(2).replace('.',',') + '</td><td><div class="ticket-stack">' + pills + '<button class="btn btn-secondary btn-sm" onclick=\'openNieuwTicket(' + JSON.stringify(m) + ')\' style="align-self:flex-start;' + (mt.length?'margin-top:4px':'') + '">+ Ticket</button></div></td></tr>';
   }).join('');
-  content.innerHTML = '<table><thead><tr>' +
-    '<th class="sorteerbaar' + (sorteerKolom==='id'?' actief':'') + '" onclick="sorteer('id')" >ID<span class="sort-pijl">' + (sorteerKolom==='id'?(sorteerRichting==='asc'?'↑':'↓'):'↕') + '</span></th>' +
-    '<th class="sorteerbaar' + (sorteerKolom==='datum'?' actief':'') + '" onclick="sorteer('datum')">Datum<span class="sort-pijl">' + (sorteerKolom==='datum'?(sorteerRichting==='asc'?'↑':'↓'):'↕') + '</span></th>' +
-    '<th>Factuurnummer</th>' +
-    '<th class="sorteerbaar' + (sorteerKolom==='rekening'?' actief':'') + '" onclick="sorteer('rekening')">Rekening<span class="sort-pijl">' + (sorteerKolom==='rekening'?(sorteerRichting==='asc'?'↑':'↓'):'↕') + '</span></th>' +
-    '<th>Tegenrekening</th>' +
-    '<th class="sorteerbaar' + (sorteerKolom==='bedrag'?' actief':'') + '" onclick="sorteer('bedrag')">Bedrag<span class="sort-pijl">' + (sorteerKolom==='bedrag'?(sorteerRichting==='asc'?'↑':'↓'):'↕') + '</span></th>' +
-    '<th>Tickets</th>' +
-    '</tr></thead><tbody>' + rows + '</tbody></table>';
+  var pijl = function(k) { return sorteerKolom===k ? (sorteerRichting==='asc' ? '↑' : '↓') : '↕'; };
+  var act = function(k) { return sorteerKolom===k ? ' actief' : ''; };
+  var thID      = '<th class="sorteerbaar' + act('id')       + '" onclick="sorteer(\'id\')">ID <span class="sort-pijl">'       + pijl('id')       + '</span></th>';
+  var thDatum   = '<th class="sorteerbaar' + act('datum')    + '" onclick="sorteer(\'datum\')">Datum <span class="sort-pijl">'   + pijl('datum')    + '</span></th>';
+  var thRek     = '<th class="sorteerbaar' + act('rekening') + '" onclick="sorteer(\'rekening\')">Rekening <span class="sort-pijl">' + pijl('rekening') + '</span></th>';
+  var thBedrag  = '<th class="sorteerbaar' + act('bedrag')   + '" onclick="sorteer(\'bedrag\')">Bedrag <span class="sort-pijl">' + pijl('bedrag')   + '</span></th>';
+  content.innerHTML = '<table><thead><tr>' + thID + thDatum + '<th>Factuurnummer</th>' + thRek + '<th>Tegenrekening</th>' + thBedrag + '<th>Tickets</th></tr></thead><tbody>' + rows + '</tbody></table>';
 }
 
 function filterMutaties() {
