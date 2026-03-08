@@ -140,6 +140,7 @@
         <input type="date" id="filterTot" class="search-box" style="width:160px">
         <button class="btn btn-secondary btn-sm" onclick="laadMutaties()">↻ Toepassen</button>
         <button class="btn btn-secondary btn-sm" onclick="setHaalJaar()">📅 Heel jaar</button>
+        <button class="btn btn-secondary btn-sm" onclick="setHaalMaand()">📅 Deze maand</button>
       </div>
     </div>
     <div class="table-wrap"><div id="mutatiesContent">
@@ -278,6 +279,14 @@ function sorteer(kolom) {
     return 0;
   });
   renderMutaties();
+}
+
+function setHaalMaand() {
+  var nu = new Date();
+  var eersteVanMaand = nu.getFullYear() + '-' + String(nu.getMonth()+1).padStart(2,'0') + '-01';
+  document.getElementById('filterVan').value = eersteVanMaand;
+  document.getElementById('filterTot').value = nu.toISOString().substring(0,10);
+  laadMutaties();
 }
 
 function setHaalJaar() {
