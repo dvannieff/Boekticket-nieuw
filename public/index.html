@@ -1027,6 +1027,8 @@ async function openNieuwTicketVanafLijst() {
   }
 }
 
+var zoekResultaten = []; // cache voor zoekresultaten
+
 function filterMutatieZoeker() {
   var q = document.getElementById('mutatieZoekInput').value.toLowerCase().trim();
   var resultatenDiv = document.getElementById('mutatieZoekerResultaten');
@@ -1035,26 +1037,28 @@ function filterMutatieZoeker() {
     return;
   }
   var bron = alleMutaties.length > 0 ? alleMutaties : mutaties;
-  var gevonden = bron.filter(function(m) {
+  zoekResultaten = bron.filter(function(m) {
     return m.id.toLowerCase().includes(q) ||
            m.omschrijving.toLowerCase().includes(q) ||
            (m.rekening && m.rekening.toLowerCase().includes(q));
   }).slice(0, 20);
 
-  if (!gevonden.length) {
+  if (!zoekResultaten.length) {
     resultatenDiv.innerHTML = '<div style="padding:10px 14px;color:var(--muted);font-size:12px;">Geen mutaties gevonden</div>';
     return;
   }
-  resultatenDiv.innerHTML = gevonden.map(function(m) {
+  resultatenDiv.innerHTML = zoekResultaten.map(function(m, i) {
     var pos = m.bedrag >= 0;
-    return '<div class="mutatie-zoek-item" onclick="kiesMutatie(' + JSON.stringify(m).replace(/'/g, "&#39;") + ')">' +
+    return '<div class="mutatie-zoek-item" onclick="kiesMutatie(' + i + ')">' +
       '<div><span class="mutatie-zoek-id">' + m.id + '</span><span class="mutatie-zoek-omschrijving">' + m.omschrijving + '</span></div>' +
       '<div class="mutatie-zoek-meta">' + (m.datumNL||m.datum) + ' · rekening: ' + (m.rekening||'—') + ' · <span style="color:' + (pos?'var(--accent)':'var(--danger)') + '">€ ' + (pos?'+':'') + m.bedrag.toFixed(2).replace('.',',') + '</span></div>' +
     '</div>';
   }).join('');
 }
 
-function kiesMutatie(m) {
+function kiesMutatie(i) {
+  var m = zoekResultaten[i];
+  if (!m) return;
   huidigeMutatie = m;
   document.getElementById('mutatieZoekerResultaten').innerHTML = '';
   document.getElementById('mutatieZoekInput').value = '';
