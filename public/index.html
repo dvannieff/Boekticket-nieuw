@@ -815,6 +815,7 @@ async function laadMutaties() {
         omschrijving: m.description || m.invoiceNumber || '(geen omschrijving)',
         bedrag: parseFloat(m.amount != null ? m.amount : 0),
         rekening: String(m.ledgerCode || m.ledgerId || ''),
+        rekeningOmschrijving: m.ledgerOmschrijving || '',
         tegenrekening: ''
       };
     });
@@ -839,9 +840,13 @@ async function laadTegenrekeningenProgressief() {
       var detail = JSON.parse(await resp.text());
       if (detail.rows && detail.rows.length > 0) {
         var tegenId = detail.rows[0].ledgerId;
-        m.tegenrekening = (window.ledgerMap && window.ledgerMap[tegenId]) ? window.ledgerMap[tegenId] : String(tegenId);
+        var tegenLedger = (window.ledgerMap && window.ledgerMap[tegenId]) ? window.ledgerMap[tegenId] : null;
+        var tegenCode = tegenLedger ? tegenLedger.code : String(tegenId);
+        var tegenOmschrijving = tegenLedger ? tegenLedger.omschrijving : '';
+        m.tegenrekening = tegenCode;
+        m.tegenrekeningOmschrijving = tegenOmschrijving;
         var cel = document.getElementById('tegen-' + m.id);
-        if (cel) cel.textContent = m.tegenrekening;
+        if (cel) cel.innerHTML = tegenCode + (tegenOmschrijving ? ' <span style="color:var(--muted);opacity:0.6">' + tegenOmschrijving + '</span>' : '');
       }
     } catch(e) {}
   }
@@ -884,7 +889,7 @@ function renderMutaties(data) {
     var pills = mt.map(function(t) {
       return '<div class="ticket-pill" onclick="openBewerkTicket(\'' + t.id + '\')"><span class="pill-name">🎫 <strong>' + t.id + '</strong> ' + (t.subject.length>18?t.subject.substring(0,18)+'…':t.subject) + '</span><span class="pill-status"> · ' + (t.status||statussen[0]) + ' · ' + formatDatum(t.aangemaaktISO) + '</span></div>';
     }).join('');
-    return '<tr><td><span class="mutation-id">' + m.id + '</span></td><td style="white-space:nowrap">' + (m.datumNL||m.datum) + '</td><td>' + m.omschrijving + '</td><td style="font-size:11px;color:var(--muted)">' + (m.rekening||'—') + '</td><td style="font-size:11px;color:var(--muted)" id="tegen-' + m.id + '">' + (m.tegenrekening||'…') + '</td><td class="amount ' + (pos?'positive':'negative') + '" style="white-space:nowrap">€ ' + (pos?'+':'') + m.bedrag.toFixed(2).replace('.',',') + '</td><td><div class="ticket-stack">' + pills + '<button class="btn btn-secondary btn-sm" onclick=\'openNieuwTicket(' + JSON.stringify(m) + ')\' style="align-self:flex-start;' + (mt.length?'margin-top:4px':'') + '">+ Ticket</button></div></td></tr>';
+    return '<tr><td><span class="mutation-id">' + m.id + '</span></td><td style="white-space:nowrap">' + (m.datumNL||m.datum) + '</td><td>' + m.omschrijving + '</td><td style="font-size:11px;color:var(--muted)">' + (m.rekening||'—') + (m.rekeningOmschrijving?' <span style="color:var(--muted);opacity:0.6">'+m.rekeningOmschrijving+'</span>':'') + '</td><td style="font-size:11px;color:var(--muted)" id="tegen-' + m.id + '">' + (m.tegenrekening||'…') + '</td><td class="amount ' + (pos?'positive':'negative') + '" style="white-space:nowrap">€ ' + (pos?'+':'') + m.bedrag.toFixed(2).replace('.',',') + '</td><td><div class="ticket-stack">' + pills + '<button class="btn btn-secondary btn-sm" onclick=\'openNieuwTicket(' + JSON.stringify(m) + ')\' style="align-self:flex-start;' + (mt.length?'margin-top:4px':'') + '">+ Ticket</button></div></td></tr>';
   }).join('');
   var pijl = function(k) { return sorteerKolom===k?(sorteerRichting==='asc'?'↑':'↓'):'↕'; };
   var act = function(k) { return sorteerKolom===k?' actief':''; };
