@@ -167,7 +167,7 @@
   <div class="tabs">
     <button class="tab active" onclick="showTab('mutaties',this)">📊 Mutaties</button>
     <button class="tab" onclick="showTab('tickets',this)">🎫 Tickets</button>
-    <button class="tab" onclick="showTab('instellingen',this)">⚙️ Instellingen</button>
+    <button class="tab" id="instellingenTab" style="display:none;" onclick="showTab('instellingen',this)">⚙️ Instellingen</button>
     <button class="tab" id="auditTab" style="display:none;" onclick="showTab('audit',this);laadAuditLog()">🔍 Audit log</button>
   </div>
 
@@ -469,6 +469,7 @@ async function initialiseerApp(user) {
     document.getElementById('beheerderInstellingen').style.display = 'block';
     document.getElementById('gebruikerslijstCard').style.display = 'block';
     document.getElementById('auditTab').style.display = 'block';
+    document.getElementById('instellingenTab').style.display = 'block';
     await laadBeheerderInstellingen();
     await laadGebruikersLijst();
   }
