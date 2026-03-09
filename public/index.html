@@ -109,7 +109,13 @@
   th.sorteerbaar.actief{color:var(--accent);}
   .sort-pijl{margin-left:4px;opacity:0.5;}
   th.sorteerbaar.actief .sort-pijl{opacity:1;}
-  input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(0.5);}
+  .mutatie-zoek-item{padding:10px 14px;font-size:12px;cursor:pointer;border-bottom:1px solid var(--border);transition:background 0.15s;}
+  .mutatie-zoek-item:last-child{border-bottom:none;}
+  .mutatie-zoek-item:hover{background:var(--surface2);}
+  .mutatie-zoek-item.geselecteerd{background:rgba(79,255,176,0.08);}
+  .mutatie-zoek-id{color:var(--accent);font-weight:500;margin-right:8px;}
+  .mutatie-zoek-omschrijving{color:var(--text);}
+  .mutatie-zoek-meta{color:var(--muted);font-size:11px;margin-top:2px;}
   /* Login scherm */
   .auth-scherm{position:fixed;inset:0;background:var(--bg);z-index:999;display:flex;align-items:center;justify-content:center;}
   .auth-box{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:40px;width:100%;max-width:400px;}
@@ -196,6 +202,7 @@
         <span class="badge" id="ticketCountBadge">0 tickets</span>
         <div class="filter-bar" id="ticketFilterBar"><button class="filter-btn active" onclick="filterTickets('alle',this)">Alle</button></div>
       </div>
+      <button class="btn btn-primary" onclick="openNieuwTicketVanafLijst()">+ Nieuw ticket</button>
     </div>
     <div class="tickets-grid" id="ticketsGrid"></div>
   </div>
@@ -313,6 +320,15 @@
   <div class="modal" onclick="event.stopPropagation()">
     <h3 id="modalTitle">Ticket aanmaken</h3>
     <div class="mutation-ref" id="modalRef"></div>
+    <!-- Mutatie zoeker (alleen zichtbaar bij aanmaken vanuit ticketslijst) -->
+    <div id="mutatieZoekerWrap" style="display:none;margin-bottom:16px;">
+      <div class="field" style="margin-bottom:8px;">
+        <label>Zoek mutatie</label>
+        <input type="text" id="mutatieZoekInput" placeholder="Factuurnummer, mutatienummer of rekening..." oninput="filterMutatieZoeker()" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:'DM Mono',monospace;font-size:13px;padding:10px 14px;border-radius:8px;outline:none;">
+      </div>
+      <div id="mutatieZoekerResultaten" style="max-height:200px;overflow-y:auto;background:var(--bg);border:1px solid var(--border);border-radius:8px;"></div>
+      <div id="mutatieGekozen" style="display:none;margin-top:8px;padding:10px 14px;background:rgba(79,255,176,0.08);border:1px solid rgba(79,255,176,0.3);border-radius:8px;font-size:12px;color:var(--accent);"></div>
+    </div>
     <div class="field"><label>Onderwerp</label><input type="text" id="ticketSubject" placeholder="Bijv: Controleer deze betaling"></div>
     <label style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:8px;">Prioriteit</label>
     <div class="selector-row">
@@ -640,6 +656,7 @@ async function slaTicketOp() {
   var ownerNaam = ownerOption ? ownerOption.dataset.naam : '';
   var ownerEmail = ownerOption ? ownerOption.dataset.email : '';
   if (!subject) { toonNotificatie('Vul een onderwerp in', true); return; }
+  if (!huidigeMutatie) { toonNotificatie('Kies eerst een mutatie', true); return; }
 
   if (bewerkTicketId) {
     var result = await sb.from('tickets').update({
@@ -870,13 +887,96 @@ function renderFilterBar() {
   }).join('');
 }
 
-async function openNieuwTicket(m) {
+var alleMutaties = []; // cache voor alle mutaties (ongeacht periode filter)
+
+async function openNieuwTicketVanafLijst() {
+  huidigeMutatie = null; bewerkTicketId = null;
+  document.getElementById('modalTitle').textContent = 'Nieuw ticket';
+  document.getElementById('modalRef').textContent = '';
+  document.getElementById('ticketSubject').value = '';
+  document.getElementById('ticketNote').value = '';
+  document.getElementById('ticketAanmaker').value = gebruikerNaam(huidigGebruiker.id, huidigGebruiker.email);
+  document.getElementById('mutatieZoekerWrap').style.display = 'block';
+  document.getElementById('mutatieGekozen').style.display = 'none';
+  document.getElementById('mutatieZoekInput').value = '';
+  document.getElementById('mutatieZoekerResultaten').innerHTML = '<div style="padding:10px 14px;color:var(--muted);font-size:12px;">Typ om te zoeken...</div>';
+  selectPriority('laag'); vulStatusDropdown(statussen[0]); vulOwnerDropdown(null);
+  document.getElementById('modalOverlay').style.display = 'flex';
+
+  // Laad alle mutaties als nog niet gedaan
+  if (alleMutaties.length === 0 && instellingen.proxyUrl) {
+    document.getElementById('mutatieZoekerResultaten').innerHTML = '<div style="padding:10px 14px;color:var(--muted);font-size:12px;">⏳ Mutaties laden...</div>';
+    try {
+      var resp = await fetch(instellingen.proxyUrl + '/api/mutations?_=' + Date.now());
+      var data = await resp.json();
+      var items = Array.isArray(data) ? data : (data.items || data.mutations || []);
+      alleMutaties = items.map(function(m) {
+        return {
+          id: String(m.id || ''),
+          datum: (m.date || '').substring(0,10),
+          datumNL: (m.date||'').length>=10 ? (m.date||'').substring(8,10)+'-'+(m.date||'').substring(5,7)+'-'+(m.date||'').substring(0,4) : '',
+          omschrijving: m.description || m.invoiceNumber || '(geen omschrijving)',
+          bedrag: parseFloat(m.amount != null ? m.amount : 0),
+          rekening: String(m.ledgerCode || m.ledgerId || ''),
+          tegenrekening: ''
+        };
+      });
+      if (!window.ledgerMap && data.ledgerMap) window.ledgerMap = data.ledgerMap;
+    } catch(e) {
+      document.getElementById('mutatieZoekerResultaten').innerHTML = '<div style="padding:10px 14px;color:var(--danger);font-size:12px;">Fout bij laden mutaties</div>';
+    }
+    document.getElementById('mutatieZoekerResultaten').innerHTML = '<div style="padding:10px 14px;color:var(--muted);font-size:12px;">Typ om te zoeken...</div>';
+  } else if (alleMutaties.length === 0 && mutaties.length > 0) {
+    alleMutaties = mutaties;
+  }
+}
+
+function filterMutatieZoeker() {
+  var q = document.getElementById('mutatieZoekInput').value.toLowerCase().trim();
+  var resultatenDiv = document.getElementById('mutatieZoekerResultaten');
+  if (!q) {
+    resultatenDiv.innerHTML = '<div style="padding:10px 14px;color:var(--muted);font-size:12px;">Typ om te zoeken...</div>';
+    return;
+  }
+  var bron = alleMutaties.length > 0 ? alleMutaties : mutaties;
+  var gevonden = bron.filter(function(m) {
+    return m.id.toLowerCase().includes(q) ||
+           m.omschrijving.toLowerCase().includes(q) ||
+           (m.rekening && m.rekening.toLowerCase().includes(q));
+  }).slice(0, 20);
+
+  if (!gevonden.length) {
+    resultatenDiv.innerHTML = '<div style="padding:10px 14px;color:var(--muted);font-size:12px;">Geen mutaties gevonden</div>';
+    return;
+  }
+  resultatenDiv.innerHTML = gevonden.map(function(m) {
+    var pos = m.bedrag >= 0;
+    return '<div class="mutatie-zoek-item" onclick="kiesMutatie(' + JSON.stringify(m).replace(/'/g, "&#39;") + ')">' +
+      '<div><span class="mutatie-zoek-id">' + m.id + '</span><span class="mutatie-zoek-omschrijving">' + m.omschrijving + '</span></div>' +
+      '<div class="mutatie-zoek-meta">' + (m.datumNL||m.datum) + ' · rekening: ' + (m.rekening||'—') + ' · <span style="color:' + (pos?'var(--accent)':'var(--danger)') + '">€ ' + (pos?'+':'') + m.bedrag.toFixed(2).replace('.',',') + '</span></div>' +
+    '</div>';
+  }).join('');
+}
+
+function kiesMutatie(m) {
+  huidigeMutatie = m;
+  document.getElementById('mutatieZoekerResultaten').innerHTML = '';
+  document.getElementById('mutatieZoekInput').value = '';
+  var gekozenDiv = document.getElementById('mutatieGekozen');
+  gekozenDiv.style.display = 'block';
+  gekozenDiv.innerHTML = '✓ Mutatie ' + m.id + ' — ' + m.omschrijving + ' <span style="color:var(--muted)">(' + (m.datumNL||m.datum) + ' · rekening: ' + (m.rekening||'—') + ')</span>';
+  document.getElementById('modalRef').textContent = '📎 ' + m.id + ' — ' + m.omschrijving;
+}
+
+function openNieuwTicket(m) {
   huidigeMutatie = m; bewerkTicketId = null;
   document.getElementById('modalTitle').textContent = 'Ticket aanmaken';
   document.getElementById('modalRef').textContent = '📎 '+m.id+' — '+m.omschrijving;
   document.getElementById('ticketSubject').value = '';
   document.getElementById('ticketNote').value = '';
   document.getElementById('ticketAanmaker').value = gebruikerNaam(huidigGebruiker.id, huidigGebruiker.email);
+  document.getElementById('mutatieZoekerWrap').style.display = 'none';
+  document.getElementById('mutatieGekozen').style.display = 'none';
   selectPriority('laag'); vulStatusDropdown(statussen[0]); vulOwnerDropdown(null);
   document.getElementById('modalOverlay').style.display = 'flex';
   if (instellingen.proxyUrl && m.id && !String(m.id).startsWith('MUT-')) {
