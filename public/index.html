@@ -1064,7 +1064,7 @@ function kiesMutatie(m) {
   document.getElementById('modalRef').textContent = '📎 ' + m.id + ' — ' + m.omschrijving;
 }
 
-function openNieuwTicket(m) {
+async function openNieuwTicket(m) {
   huidigeMutatie = m; bewerkTicketId = null;
   document.getElementById('modalTitle').textContent = 'Ticket aanmaken';
   document.getElementById('modalRef').textContent = '📎 '+m.id+' — '+m.omschrijving;
