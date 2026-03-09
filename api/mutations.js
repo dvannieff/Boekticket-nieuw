@@ -40,7 +40,10 @@ module.exports = async function handler(req, res) {
     const ledgers = ledgerData.items || ledgerData || [];
     const ledgerMap = {};
     ledgers.forEach(function(l) {
-      ledgerMap[l.id] = l.code || String(l.id);
+      ledgerMap[l.id] = {
+        code: l.code || String(l.id),
+        omschrijving: l.description || l.name || l.omschrijving || ''
+      };
     });
     const mutRes = await doRequest({
       hostname: 'api.e-boekhouden.nl',
@@ -51,8 +54,9 @@ module.exports = async function handler(req, res) {
     const mutData = JSON.parse(mutRes.body);
     const items = Array.isArray(mutData) ? mutData : (mutData.items || mutData.mutations || []);
     items.forEach(function(m) {
-      m.ledgerCode = ledgerMap[m.ledgerId] || String(m.ledgerId || '');
-      m.counterLedgerCode = ledgerMap[m.counterLedgerId] || String(m.counterLedgerId || '');
+      var ledger = ledgerMap[m.ledgerId] || {};
+      m.ledgerCode = ledger.code || String(m.ledgerId || '');
+      m.ledgerOmschrijving = ledger.omschrijving || '';
     });
     const gefilterd = items.filter(function(m) {
       if (!req.query.dateFrom && !req.query.dateTo) return true;
