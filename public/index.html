@@ -27,7 +27,7 @@
   .tab{padding:8px 20px;border:none;background:transparent;color:var(--muted);font-family:'DM Mono',monospace;font-size:13px;cursor:pointer;border-radius:7px;transition:all 0.2s;}
   .tab.active{background:var(--surface2);color:var(--accent);border:1px solid var(--border);}.tab:hover:not(.active){color:var(--text);}
   .panel{display:none;}.panel.active{display:block;}
-  .settings-grid{display:flex;flex-direction:column;gap:20px;max-width:560px;}
+  .settings-grid{display:flex;flex-direction:column;gap:20px;max-width:900px;}
   .settings-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:28px;}
   .settings-card h2{font-family:'Syne',sans-serif;font-weight:700;font-size:17px;margin-bottom:6px;}
   .settings-card>p{font-size:12px;color:var(--muted);margin-bottom:20px;line-height:1.6;}
@@ -220,17 +220,61 @@
         <p>Beheer wie toegang heeft tot BoekTicket en welke tickets zichtbaar zijn.</p>
         <div class="field">
           <label>Registratie</label>
-          <select id="registratieInstelling" class="styled-select" onchange="slaGebruikersBeheerOp()">
+          <select id="registratieInstelling" class="styled-select" onchange="slaRegistratieOp()">
             <option value="gesloten">Gesloten — alleen uitgenodigde gebruikers</option>
             <option value="open">Open — iedereen kan zich registreren</option>
           </select>
         </div>
-        <div class="field">
-          <label>Tickets zichtbaar voor teamleden</label>
-          <select id="ticketsZichtbaar" class="styled-select" onchange="slaGebruikersBeheerOp()">
-            <option value="eigen">Alleen eigen tickets</option>
-            <option value="alle">Alle tickets van het team</option>
-          </select>
+      </div>
+      <div class="settings-card" id="gebruikerslijstCard" style="display:none;max-width:100%;">
+        <h2>👤 Gebruikers</h2>
+        <p>Overzicht van alle gebruikers. Klik op een gebruiker om gegevens te bewerken.</p>
+        <div style="overflow-x:auto;">
+          <table id="gebruikersTable" style="width:100%;border-collapse:collapse;font-size:12px;">
+            <thead>
+              <tr style="background:var(--surface2);">
+                <th style="text-align:left;padding:10px 12px;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:1px;border-bottom:1px solid var(--border);font-weight:400;">Naam</th>
+                <th style="text-align:left;padding:10px 12px;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:1px;border-bottom:1px solid var(--border);font-weight:400;">E-mail</th>
+                <th style="text-align:left;padding:10px 12px;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:1px;border-bottom:1px solid var(--border);font-weight:400;">Functie</th>
+                <th style="text-align:left;padding:10px 12px;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:1px;border-bottom:1px solid var(--border);font-weight:400;">Tickets zichtbaar</th>
+                <th style="text-align:left;padding:10px 12px;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:1px;border-bottom:1px solid var(--border);font-weight:400;">Acties</th>
+              </tr>
+            </thead>
+            <tbody id="gebruikersTbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Gebruiker bewerk modal (inline) -->
+      <div class="settings-card" id="gebruikerBewerkCard" style="display:none;">
+        <h2>✏️ Gebruiker bewerken</h2>
+        <input type="hidden" id="bewerkGebruikerId">
+        <div style="display:flex;gap:12px;flex-wrap:wrap;">
+          <div class="field" style="flex:0 0 60px;min-width:60px"><label>Voorl.</label><input type="text" id="bewerkVoorletter" placeholder="D."></div>
+          <div class="field" style="flex:1;min-width:120px"><label>Voornaam</label><input type="text" id="bewerkVoornaam" placeholder="Danny"></div>
+          <div class="field" style="flex:0 0 100px;min-width:80px"><label>Tussenvoegsel</label><input type="text" id="bewerkTussenvoegsel" placeholder="van"></div>
+          <div class="field" style="flex:1;min-width:120px"><label>Achternaam</label><input type="text" id="bewerkAchternaam" placeholder="Nieff"></div>
+        </div>
+        <div class="field"><label>E-mailadres</label><input type="email" id="bewerkEmail" placeholder="danny@vannieff.nl" disabled style="opacity:0.5;cursor:not-allowed;"></div>
+        <div style="display:flex;gap:12px;flex-wrap:wrap;">
+          <div class="field" style="flex:1;min-width:160px">
+            <label>Functie</label>
+            <select id="bewerkFunctie" class="styled-select">
+              <option value="gebruiker">Gebruiker</option>
+              <option value="admin">Admin</option>
+            </select>
+          </div>
+          <div class="field" style="flex:1;min-width:160px">
+            <label>Tickets zichtbaar</label>
+            <select id="bewerkTicketsZichtbaar" class="styled-select">
+              <option value="eigen">Alleen eigen tickets</option>
+              <option value="alle">Alle teamtickets</option>
+            </select>
+          </div>
+        </div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+          <button class="btn btn-primary" onclick="slaGebruikerBewerkingOp()">✓ Opslaan</button>
+          <button class="btn btn-secondary" onclick="document.getElementById('gebruikerBewerkCard').style.display='none'">Annuleren</button>
         </div>
       </div>
       <div class="settings-card">
@@ -360,10 +404,12 @@ async function initialiseerApp(user) {
 
   // Check of admin
   var adminEmail = await getAdminEmail();
-  isAdmin = (user.email === adminEmail);
+  isAdmin = (user.email === adminEmail) || (instellingen.functie === 'admin');
   if (isAdmin) {
     document.getElementById('beheerderInstellingen').style.display = 'block';
+    document.getElementById('gebruikerslijstCard').style.display = 'block';
     await laadBeheerderInstellingen();
+    await laadGebruikersLijst();
   }
 
   // Standaard periode filter
@@ -410,7 +456,7 @@ async function laadGebruikerInstellingen() {
     };
   } else {
     // Nieuwe gebruiker — maak instellingen aan
-    await sb.from('gebruiker_instellingen').insert({ user_id: huidigGebruiker.id });
+    await sb.from('gebruiker_instellingen').insert({ user_id: huidigGebruiker.id, user_email: huidigGebruiker.email });
     instellingen = {};
   }
 }
@@ -429,27 +475,85 @@ async function laadBeheerderInstellingen() {
   var result = await sb.from('gebruiker_instellingen').select('*').eq('user_id', huidigGebruiker.id).single();
   if (result.data) {
     var reg = result.data.registratie_instelling || 'gesloten';
-    var zicht = result.data.tickets_zichtbaar || 'eigen';
     document.getElementById('registratieInstelling').value = reg;
-    document.getElementById('ticketsZichtbaar').value = zicht;
-    ticketsZichtbaarInstelling = zicht;
-    // Open/gesloten registratie toepassen
     toonRegistratieTab(reg);
   }
 }
 
-async function slaGebruikersBeheerOp() {
+async function slaRegistratieOp() {
   var reg = document.getElementById('registratieInstelling').value;
-  var zicht = document.getElementById('ticketsZichtbaar').value;
-  ticketsZichtbaarInstelling = zicht;
-  await sb.from('gebruiker_instellingen').upsert({
-    user_id: huidigGebruiker.id,
-    registratie_instelling: reg,
-    tickets_zichtbaar: zicht
-  });
+  await sb.from('gebruiker_instellingen').upsert({ user_id: huidigGebruiker.id, registratie_instelling: reg });
   toonRegistratieTab(reg);
-  await laadTickets();
+  toonNotificatie('✓ Registratie-instelling opgeslagen');
+}
+
+async function slaGebruikersBeheerOp() {
+  var reg = document.getElementById('registratieInstelling') ? document.getElementById('registratieInstelling').value : 'gesloten';
+  await sb.from('gebruiker_instellingen').upsert({ user_id: huidigGebruiker.id, registratie_instelling: reg });
+  toonRegistratieTab(reg);
   toonNotificatie('✓ Instellingen opgeslagen');
+}
+
+async function laadGebruikersLijst() {
+  var result = await sb.from('gebruiker_instellingen').select('*');
+  if (!result.data) return;
+  var tbody = document.getElementById('gebruikersTbody');
+  tbody.innerHTML = result.data.map(function(u) {
+    var naam = [u.voorletter, u.voornaam, u.tussenvoegsel, u.achternaam].filter(Boolean).join(' ') || '<span style="color:var(--muted);font-style:italic">Niet ingevuld</span>';
+    var functie = u.functie === 'admin' ? '<span style="color:var(--accent);font-size:11px;background:rgba(79,255,176,0.1);padding:2px 8px;border-radius:4px;border:1px solid rgba(79,255,176,0.3);">Admin</span>' : '<span style="color:var(--muted);font-size:11px;">Gebruiker</span>';
+    var zichtbaar = u.tickets_zichtbaar_eigen === 'alle' ? 'Alle teamtickets' : 'Eigen tickets';
+    var isZelf = u.user_id === huidigGebruiker.id ? ' (jij)' : '';
+    return '<tr style="border-bottom:1px solid rgba(42,45,56,0.5);">' +
+      '<td style="padding:10px 12px;">' + naam + '<span style="color:var(--muted);font-size:10px;">' + isZelf + '</span></td>' +
+      '<td style="padding:10px 12px;color:var(--muted);font-size:12px;">' + (u.user_email || '—') + '</td>' +
+      '<td style="padding:10px 12px;">' + functie + '</td>' +
+      '<td style="padding:10px 12px;color:var(--muted);font-size:12px;">' + zichtbaar + '</td>' +
+      '<td style="padding:10px 12px;"><div style="display:flex;gap:6px;">' +
+        '<button class="btn btn-secondary btn-sm" onclick="openGebruikerBewerken(\'' + u.user_id + '\')">✏️ Bewerken</button>' +
+        (u.user_id !== huidigGebruiker.id ? '<button class="btn btn-danger btn-sm" onclick="verwijderGebruiker(\'' + u.user_id + '\')">🗑</button>' : '') +
+      '</div></td>' +
+    '</tr>';
+  }).join('');
+}
+
+async function openGebruikerBewerken(userId) {
+  var result = await sb.from('gebruiker_instellingen').select('*').eq('user_id', userId).single();
+  if (!result.data) return;
+  var u = result.data;
+  document.getElementById('bewerkGebruikerId').value = userId;
+  document.getElementById('bewerkVoorletter').value = u.voorletter || '';
+  document.getElementById('bewerkVoornaam').value = u.voornaam || '';
+  document.getElementById('bewerkTussenvoegsel').value = u.tussenvoegsel || '';
+  document.getElementById('bewerkAchternaam').value = u.achternaam || '';
+  document.getElementById('bewerkEmail').value = u.user_email || '';
+  document.getElementById('bewerkFunctie').value = u.functie || 'gebruiker';
+  document.getElementById('bewerkTicketsZichtbaar').value = u.tickets_zichtbaar_eigen || 'eigen';
+  document.getElementById('gebruikerBewerkCard').style.display = 'block';
+  document.getElementById('gebruikerBewerkCard').scrollIntoView({ behavior: 'smooth' });
+}
+
+async function slaGebruikerBewerkingOp() {
+  var userId = document.getElementById('bewerkGebruikerId').value;
+  var result = await sb.from('gebruiker_instellingen').upsert({
+    user_id: userId,
+    voorletter: document.getElementById('bewerkVoorletter').value.trim(),
+    voornaam: document.getElementById('bewerkVoornaam').value.trim(),
+    tussenvoegsel: document.getElementById('bewerkTussenvoegsel').value.trim(),
+    achternaam: document.getElementById('bewerkAchternaam').value.trim(),
+    functie: document.getElementById('bewerkFunctie').value,
+    tickets_zichtbaar_eigen: document.getElementById('bewerkTicketsZichtbaar').value
+  });
+  if (result.error) { toonNotificatie('Fout: ' + result.error.message, true); return; }
+  document.getElementById('gebruikerBewerkCard').style.display = 'none';
+  await laadGebruikersLijst();
+  toonNotificatie('✓ Gebruiker opgeslagen');
+}
+
+async function verwijderGebruiker(userId) {
+  if (!confirm('Gebruiker uit de lijst verwijderen? Het account blijft bestaan in Supabase.')) return;
+  await sb.from('gebruiker_instellingen').delete().eq('user_id', userId);
+  await laadGebruikersLijst();
+  toonNotificatie('🗑 Gebruiker verwijderd uit lijst');
 }
 
 function toonRegistratieTab(reg) {
@@ -482,26 +586,23 @@ async function slaStatussenOp() {
 // ===== TICKETS =====
 
 async function laadTickets() {
+  // Haal eigen instelling op
+  var ownResult = await sb.from('gebruiker_instellingen').select('tickets_zichtbaar_eigen,functie').eq('user_id', huidigGebruiker.id).single();
+  var eigenInstelling = ownResult.data ? (ownResult.data.tickets_zichtbaar_eigen || 'eigen') : 'eigen';
+  var isAdminUser = ownResult.data && ownResult.data.functie === 'admin';
+  
   var query = sb.from('tickets').select('*').order('aangemaakt_iso', { ascending: false });
-  if (ticketsZichtbaarInstelling !== 'alle') {
+  if (eigenInstelling !== 'alle' && !isAdminUser) {
     query = query.eq('user_id', huidigGebruiker.id);
   }
   var result = await query;
   if (result.data) {
     tickets = result.data.map(function(t) {
       return {
-        id: t.id,
-        mutatieId: t.mutatie_id,
-        mutatieOmschrijving: t.mutatie_omschrijving,
-        subject: t.subject,
-        note: t.note,
-        priority: t.priority,
-        status: t.status,
-        rekening: t.rekening,
-        tegenrekening: t.tegenrekening,
-        aangemaaktISO: t.aangemaakt_iso,
-        gewijzigd: t.gewijzigd,
-        user_email: t.user_email
+        id: t.id, mutatieId: t.mutatie_id, mutatieOmschrijving: t.mutatie_omschrijving,
+        subject: t.subject, note: t.note, priority: t.priority, status: t.status,
+        rekening: t.rekening, tegenrekening: t.tegenrekening,
+        aangemaaktISO: t.aangemaakt_iso, gewijzigd: t.gewijzigd, user_email: t.user_email
       };
     });
   }
