@@ -300,6 +300,7 @@ var huidigeMutatie = null, huidigPrio = 'laag', bewerkTicketId = null, ticketFil
 var sorteerKolom = 'id', sorteerRichting = 'asc';
 var huidigGebruiker = null;
 var isAdmin = false;
+var beziggModeUitloggen = false;
 var ticketsZichtbaarInstelling = 'eigen';
 
 // ===== AUTHENTICATIE =====
@@ -337,12 +338,15 @@ async function doeRegistreren() {
 }
 
 async function doeUitloggen() {
+  beziggModeUitloggen = true;
   await sb.auth.signOut();
   huidigGebruiker = null;
+  tickets = []; mutaties = [];
   document.getElementById('authScherm').style.display = 'flex';
   document.getElementById('mainApp').style.display = 'none';
   document.getElementById('loginEmail').value = '';
   document.getElementById('loginWachtwoord').value = '';
+  setTimeout(function() { beziggModeUitloggen = false; }, 1000);
 }
 
 async function initialiseerApp(user) {
@@ -821,7 +825,8 @@ window.onload = async function() {
 
   // Luister naar auth wijzigingen
   sb.auth.onAuthStateChange(async function(event, session) {
-    if (event === 'SIGNED_IN' && session) {
+    if (beziggModeUitloggen) return;
+    if (event === 'SIGNED_IN' && session && !huidigGebruiker) {
       await initialiseerApp(session.user);
     } else if (event === 'SIGNED_OUT') {
       document.getElementById('authScherm').style.display = 'flex';
