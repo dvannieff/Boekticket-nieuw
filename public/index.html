@@ -412,6 +412,18 @@ async function doeLogin() {
   if (!email || !wachtwoord) { fout.textContent = 'Vul e-mail en wachtwoord in.'; fout.style.display = 'block'; return; }
   var result = await sb.auth.signInWithPassword({ email: email, password: wachtwoord });
   if (result.error) { fout.textContent = result.error.message; fout.style.display = 'block'; return; }
+  // Stuur inlogmelding
+  var user = result.data.user;
+  var gResult = await sb.from('gebruiker_instellingen').select('voornaam,tussenvoegsel,achternaam').eq('user_id', user.id).single();
+  var naam = '';
+  if (gResult.data) naam = [gResult.data.voornaam, gResult.data.tussenvoegsel, gResult.data.achternaam].filter(Boolean).join(' ');
+  var nu = new Date();
+  var tijdstip = nu.toLocaleDateString('nl-NL',{day:'2-digit',month:'2-digit',year:'numeric'}) + ' ' + nu.toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'});
+  fetch((instellingen.proxyUrl || '') + '/api/notify', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ naam: naam || email, email: email, tijdstip: tijdstip })
+  }).catch(function(){});
   await initialiseerApp(result.data.user);
 }
 
