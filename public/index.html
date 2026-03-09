@@ -168,6 +168,7 @@
     <button class="tab active" onclick="showTab('mutaties',this)">📊 Mutaties</button>
     <button class="tab" onclick="showTab('tickets',this)">🎫 Tickets</button>
     <button class="tab" onclick="showTab('instellingen',this)">⚙️ Instellingen</button>
+    <button class="tab" id="auditTab" style="display:none;" onclick="showTab('audit',this);laadAuditLog()">🔍 Audit log</button>
   </div>
 
   <!-- MUTATIES -->
@@ -205,6 +206,32 @@
       <button class="btn btn-primary" onclick="openNieuwTicketVanafLijst()">+ Nieuw ticket</button>
     </div>
     <div class="tickets-grid" id="ticketsGrid"></div>
+  </div>
+
+  <!-- AUDIT LOG -->
+  <div class="panel" id="panel-audit">
+    <div class="toolbar">
+      <div class="toolbar-left">
+        <span class="badge" id="auditCountBadge">0 regels</span>
+        <select id="auditTabelFilter" class="search-box" style="width:180px;" onchange="laadAuditLog()">
+          <option value="">Alle tabellen</option>
+          <option value="tickets">Tickets</option>
+          <option value="gebruiker_instellingen">Gebruikers</option>
+        </select>
+        <select id="auditActieFilter" class="search-box" style="width:150px;" onchange="laadAuditLog()">
+          <option value="">Alle acties</option>
+          <option value="INSERT">Aangemaakt</option>
+          <option value="UPDATE">Gewijzigd</option>
+          <option value="DELETE">Verwijderd</option>
+        </select>
+      </div>
+      <button class="btn btn-secondary" onclick="laadAuditLog()">↻ Ververs</button>
+    </div>
+    <div class="table-wrap">
+      <div id="auditContent">
+        <div class="empty-state"><div class="icon">🔍</div><p>Audit log laden...</p></div>
+      </div>
+    </div>
   </div>
 
   <!-- INSTELLINGEN -->
@@ -429,6 +456,7 @@ async function initialiseerApp(user) {
   if (isAdmin) {
     document.getElementById('beheerderInstellingen').style.display = 'block';
     document.getElementById('gebruikerslijstCard').style.display = 'block';
+    document.getElementById('auditTab').style.display = 'block';
     await laadBeheerderInstellingen();
     await laadGebruikersLijst();
   }
@@ -572,6 +600,74 @@ async function slaGebruikerBewerkingOp() {
   document.getElementById('gebruikerBewerkCard').style.display = 'none';
   await laadGebruikersLijst();
   toonNotificatie('✓ Gebruiker opgeslagen');
+}
+
+async function laadAuditLog() {
+  var content = document.getElementById('auditContent');
+  content.innerHTML = '<div class="loading"><div class="spinner"></div>Audit log laden...</div>';
+  
+  var tabelFilter = document.getElementById('auditTabelFilter').value;
+  var actieFilter = document.getElementById('auditActieFilter').value;
+  
+  var query = sb.from('audit_log').select('*').order('tijdstip', { ascending: false }).limit(500);
+  if (tabelFilter) query = query.eq('tabel', tabelFilter);
+  if (actieFilter) query = query.eq('actie', actieFilter);
+  
+  var result = await query;
+  if (result.error) { content.innerHTML = '<div class="empty-state"><div class="icon">⚠️</div><p>Fout: ' + result.error.message + '</p></div>'; return; }
+  
+  var rows = result.data || [];
+  document.getElementById('auditCountBadge').textContent = rows.length + ' regels';
+  
+  if (!rows.length) {
+    content.innerHTML = '<div class="empty-state"><div class="icon">🔍</div><p>Geen log regels gevonden.</p></div>';
+    return;
+  }
+
+  var actieKleur = { INSERT: 'var(--accent)', UPDATE: 'var(--warning)', DELETE: 'var(--danger)' };
+  var actieLabel = { INSERT: 'Aangemaakt', UPDATE: 'Gewijzigd', DELETE: 'Verwijderd' };
+
+  var tabelRows = rows.map(function(r) {
+    var kleur = actieKleur[r.actie] || 'var(--muted)';
+    var label = actieLabel[r.actie] || r.actie;
+    var tijdstip = formatDatum(r.tijdstip);
+    var gebruiker = r.user_email || '—';
+    var recordId = r.record_id || '—';
+    var tabel = r.tabel === 'tickets' ? '🎫 Tickets' : r.tabel === 'gebruiker_instellingen' ? '👤 Gebruikers' : r.tabel;
+
+    // Toon wat er gewijzigd is bij UPDATE
+    var wijzigingen = '';
+    if (r.actie === 'UPDATE' && r.oude_waarde && r.nieuwe_waarde) {
+      var veranderd = [];
+      Object.keys(r.nieuwe_waarde).forEach(function(k) {
+        var oud = JSON.stringify(r.oude_waarde[k]);
+        var nieuw = JSON.stringify(r.nieuwe_waarde[k]);
+        if (oud !== nieuw && k !== 'gewijzigd') {
+          veranderd.push('<span style="color:var(--muted)">' + k + ':</span> <span style="color:var(--danger);text-decoration:line-through;">' + (r.oude_waarde[k]||'—') + '</span> → <span style="color:var(--accent);">' + (r.nieuwe_waarde[k]||'—') + '</span>');
+        }
+      });
+      wijzigingen = veranderd.length ? '<div style="font-size:11px;margin-top:4px;line-height:1.8;">' + veranderd.join('<br>') + '</div>' : '';
+    } else if (r.actie === 'INSERT' && r.nieuwe_waarde) {
+      var velden = [];
+      ['subject','status','priority','owner_naam','voornaam','achternaam'].forEach(function(k) {
+        if (r.nieuwe_waarde[k]) velden.push('<span style="color:var(--muted)">' + k + ':</span> ' + r.nieuwe_waarde[k]);
+      });
+      wijzigingen = velden.length ? '<div style="font-size:11px;margin-top:4px;color:var(--text);line-height:1.8;">' + velden.join(' · ') + '</div>' : '';
+    }
+
+    return '<tr>' +
+      '<td style="padding:10px 16px;white-space:nowrap;color:var(--muted);font-size:12px;">' + tijdstip + '</td>' +
+      '<td style="padding:10px 16px;font-size:12px;">' + tabel + '</td>' +
+      '<td style="padding:10px 16px;"><span style="font-size:11px;padding:2px 8px;border-radius:4px;background:' + kleur + '22;color:' + kleur + ';border:1px solid ' + kleur + '44;">' + label + '</span></td>' +
+      '<td style="padding:10px 16px;font-size:12px;color:var(--muted);">' + recordId + '</td>' +
+      '<td style="padding:10px 16px;font-size:12px;">' + gebruiker + '</td>' +
+      '<td style="padding:10px 16px;">' + wijzigingen + '</td>' +
+    '</tr>';
+  }).join('');
+
+  content.innerHTML = '<table><thead><tr>' +
+    '<th>Tijdstip</th><th>Tabel</th><th>Actie</th><th>Record ID</th><th>Gebruiker</th><th>Wijzigingen</th>' +
+    '</tr></thead><tbody>' + tabelRows + '</tbody></table>';
 }
 
 async function verwijderGebruiker(userId) {
