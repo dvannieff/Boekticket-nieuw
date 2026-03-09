@@ -261,7 +261,7 @@
             <label>Functie</label>
             <select id="bewerkFunctie" class="styled-select">
               <option value="gebruiker">Gebruiker</option>
-              <option value="admin">Admin</option>
+              <option value="admin">Beheerder</option>
             </select>
           </div>
           <div class="field" style="flex:1;min-width:160px">
@@ -499,8 +499,8 @@ async function laadGebruikersLijst() {
   if (!result.data) return;
   var tbody = document.getElementById('gebruikersTbody');
   tbody.innerHTML = result.data.map(function(u) {
-    var naam = [u.voorletter, u.voornaam, u.tussenvoegsel, u.achternaam].filter(Boolean).join(' ') || '<span style="color:var(--muted);font-style:italic">Niet ingevuld</span>';
-    var functie = u.functie === 'admin' ? '<span style="color:var(--accent);font-size:11px;background:rgba(79,255,176,0.1);padding:2px 8px;border-radius:4px;border:1px solid rgba(79,255,176,0.3);">Admin</span>' : '<span style="color:var(--muted);font-size:11px;">Gebruiker</span>';
+    var naam = [u.voornaam, u.tussenvoegsel, u.achternaam].filter(Boolean).join(' ') || '<span style="color:var(--muted);font-style:italic">Niet ingevuld</span>';
+    var functie = u.functie === 'admin' ? '<span style="color:var(--accent);font-size:11px;background:rgba(79,255,176,0.1);padding:2px 8px;border-radius:4px;border:1px solid rgba(79,255,176,0.3);">Beheerder</span>' : '<span style="color:var(--muted);font-size:11px;">Gebruiker</span>';
     var zichtbaar = u.tickets_zichtbaar_eigen === 'alle' ? 'Alle teamtickets' : 'Eigen tickets';
     var isZelf = u.user_id === huidigGebruiker.id ? ' (jij)' : '';
     return '<tr style="border-bottom:1px solid rgba(42,45,56,0.5);">' +
