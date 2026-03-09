@@ -321,6 +321,10 @@
       <div class="selector-option" onclick="selectPriority('hoog')" id="prio-hoog">Hoog</div>
     </div>
     <div class="field"><label>Status</label><select class="styled-select" id="ticketStatus"></select></div>
+    <div style="display:flex;gap:12px;">
+      <div class="field" style="flex:1"><label>Aangemaakt door</label><input type="text" id="ticketAanmaker" disabled style="opacity:0.5;cursor:not-allowed;"></div>
+      <div class="field" style="flex:1"><label>Ticket owner</label><select class="styled-select" id="ticketOwner"></select></div>
+    </div>
     <div class="field"><label>Opmerking / Todo</label><textarea id="ticketNote" placeholder="Schrijf hier je opmerking of todo..."></textarea></div>
     <div class="modal-footer">
       <button class="btn btn-secondary" onclick="sluitModalDirect()">Annuleren</button>
@@ -345,6 +349,7 @@ var sorteerKolom = 'id', sorteerRichting = 'asc';
 var huidigGebruiker = null;
 var isAdmin = false;
 var beziggModeUitloggen = false;
+var gebruikersCache = [];
 var ticketsZichtbaarInstelling = 'eigen';
 
 // ===== AUTHENTICATIE =====
@@ -423,6 +428,10 @@ async function initialiseerApp(user) {
     document.getElementById('proxyUrl').value = instellingen.proxyUrl;
     laadMutaties();
   }
+
+  // Laad gebruikerslijst voor owner dropdown
+  var gResult = await sb.from('gebruiker_instellingen').select('user_id,voornaam,tussenvoegsel,achternaam,user_email');
+  if (gResult.data) gebruikersCache = gResult.data;
   document.getElementById('tktPrefix').value = instellingen.ticketPrefix || 'TKT';
   document.getElementById('tktStartnummer').value = (instellingen.ticketTeller || 0) + 1;
   ticketTeller = instellingen.ticketTeller || 0;
@@ -602,7 +611,9 @@ async function laadTickets() {
         id: t.id, mutatieId: t.mutatie_id, mutatieOmschrijving: t.mutatie_omschrijving,
         subject: t.subject, note: t.note, priority: t.priority, status: t.status,
         rekening: t.rekening, tegenrekening: t.tegenrekening,
-        aangemaaktISO: t.aangemaakt_iso, gewijzigd: t.gewijzigd, user_email: t.user_email
+        aangemaaktISO: t.aangemaakt_iso, gewijzigd: t.gewijzigd,
+        user_id: t.user_id, user_email: t.user_email,
+        owner_id: t.owner_id, owner_naam: t.owner_naam, owner_email: t.owner_email
       };
     });
   }
@@ -623,11 +634,17 @@ async function slaTicketOp() {
   var subject = document.getElementById('ticketSubject').value.trim();
   var note = document.getElementById('ticketNote').value.trim();
   var status = document.getElementById('ticketStatus').value;
+  var ownerSelect = document.getElementById('ticketOwner');
+  var ownerId = ownerSelect.value;
+  var ownerOption = ownerSelect.options[ownerSelect.selectedIndex];
+  var ownerNaam = ownerOption ? ownerOption.dataset.naam : '';
+  var ownerEmail = ownerOption ? ownerOption.dataset.email : '';
   if (!subject) { toonNotificatie('Vul een onderwerp in', true); return; }
 
   if (bewerkTicketId) {
     var result = await sb.from('tickets').update({
       subject: subject, note: note, priority: huidigPrio, status: status,
+      owner_id: ownerId, owner_naam: ownerNaam, owner_email: ownerEmail,
       gewijzigd: new Date().toISOString()
     }).eq('id', bewerkTicketId);
     if (result.error) { toonNotificatie('Fout bij opslaan: ' + result.error.message, true); return; }
@@ -638,6 +655,7 @@ async function slaTicketOp() {
       id: nieuwId,
       user_id: huidigGebruiker.id,
       user_email: huidigGebruiker.email,
+      owner_id: ownerId, owner_naam: ownerNaam, owner_email: ownerEmail,
       mutatie_id: huidigeMutatie.id,
       mutatie_omschrijving: huidigeMutatie.omschrijving,
       subject: subject, note: note, priority: huidigPrio, status: status,
@@ -820,6 +838,26 @@ function verwijderStatus(i) {
   statussen.splice(i,1); renderStatusList();
 }
 
+function gebruikerNaam(userId, email) {
+  var u = gebruikersCache.find(function(g) { return g.user_id === userId; });
+  if (u) {
+    var naam = [u.voornaam, u.tussenvoegsel, u.achternaam].filter(Boolean).join(' ');
+    return naam ? naam + ' (' + (u.user_email || email || '') + ')' : (u.user_email || email || userId);
+  }
+  return email || userId || '—';
+}
+
+function vulOwnerDropdown(huidigOwnerId) {
+  var opties = gebruikersCache.map(function(u) {
+    var naam = [u.voornaam, u.tussenvoegsel, u.achternaam].filter(Boolean).join(' ') || u.user_email || u.user_id;
+    var email = u.user_email || '';
+    var label = naam + (email && naam !== email ? ' (' + email + ')' : '');
+    var selected = u.user_id === (huidigOwnerId || huidigGebruiker.id) ? ' selected' : '';
+    return '<option value="' + u.user_id + '" data-email="' + email + '" data-naam="' + naam + '"' + selected + '>' + label + '</option>';
+  }).join('');
+  document.getElementById('ticketOwner').innerHTML = opties;
+}
+
 function vulStatusDropdown(huidig) {
   document.getElementById('ticketStatus').innerHTML = statussen.map(function(s) {
     return '<option value="'+s+'"'+(s===huidig?' selected':'')+'>'+s+'</option>';
@@ -838,7 +876,8 @@ async function openNieuwTicket(m) {
   document.getElementById('modalRef').textContent = '📎 '+m.id+' — '+m.omschrijving;
   document.getElementById('ticketSubject').value = '';
   document.getElementById('ticketNote').value = '';
-  selectPriority('laag'); vulStatusDropdown(statussen[0]);
+  document.getElementById('ticketAanmaker').value = gebruikerNaam(huidigGebruiker.id, huidigGebruiker.email);
+  selectPriority('laag'); vulStatusDropdown(statussen[0]); vulOwnerDropdown(null);
   document.getElementById('modalOverlay').style.display = 'flex';
   if (instellingen.proxyUrl && m.id && !String(m.id).startsWith('MUT-')) {
     try {
@@ -863,7 +902,8 @@ async function openBewerkTicket(id) {
   document.getElementById('modalRef').textContent = '📎 '+t.mutatieId+' — '+t.mutatieOmschrijving;
   document.getElementById('ticketSubject').value = t.subject||'';
   document.getElementById('ticketNote').value = t.note||'';
-  selectPriority(t.priority||'laag'); vulStatusDropdown(t.status||statussen[0]);
+  document.getElementById('ticketAanmaker').value = gebruikerNaam(t.user_id, t.user_email);
+  selectPriority(t.priority||'laag'); vulStatusDropdown(t.status||statussen[0]); vulOwnerDropdown(t.owner_id);
   document.getElementById('modalOverlay').style.display = 'flex';
   if (instellingen.proxyUrl && t.mutatieId) {
     try {
@@ -904,8 +944,27 @@ function renderTickets() {
     return;
   }
   grid.innerHTML = gefilterd.map(function(t) {
-    var eigenLabel = t.user_email && t.user_email !== huidigGebruiker.email ? '<span style="font-size:10px;color:var(--muted);background:var(--surface2);padding:2px 6px;border-radius:4px;">👤 '+t.user_email+'</span>' : '';
-    return '<div class="ticket-card"><div class="ticket-header"><div class="ticket-meta"><div class="ticket-title">'+t.subject+'</div><div class="ticket-sub"><span style="color:var(--accent);font-weight:500">'+t.id+'</span><span>📎 '+t.mutatieId+'</span><span>🕐 '+formatDatum(t.aangemaaktISO)+'</span>'+(t.gewijzigd?'<span>✏️ '+formatDatum(t.gewijzigd)+'</span>':'')+eigenLabel+'</div><div class="ticket-badges"><span class="priority-badge priority-'+t.priority+'">'+t.priority+'</span><span class="status-badge">'+(t.status||statussen[0])+'</span></div></div></div>'+(t.note?'<div class="ticket-note">'+t.note+'</div>':'<div class="ticket-note placeholder">Geen opmerking</div>')+'<div class="ticket-actions"><button class="btn btn-secondary btn-sm" onclick="openBewerkTicket(\''+t.id+'\')">✏️ Bewerken</button><button class="btn btn-danger btn-sm" onclick="verwijderTicket(\''+t.id+'\')">🗑 Verwijder</button></div></div>';
+    var aanmakerNaam = gebruikerNaam(t.user_id, t.user_email);
+    var ownerNaam = t.owner_id ? gebruikerNaam(t.owner_id, t.owner_email) : aanmakerNaam;
+    var ownerLabel = '<span title="Owner">👤 ' + ownerNaam + '</span>';
+    var aanmakerLabel = '<span title="Aangemaakt door" style="color:var(--muted)">✏️ ' + aanmakerNaam + '</span>';
+    return '<div class="ticket-card">' +
+      '<div class="ticket-header"><div class="ticket-meta">' +
+        '<div class="ticket-title">'+t.subject+'</div>' +
+        '<div class="ticket-sub">' +
+          '<span style="color:var(--accent);font-weight:500">'+t.id+'</span>' +
+          '<span>📎 '+t.mutatieId+'</span>' +
+          '<span>🕐 '+formatDatum(t.aangemaaktISO)+'</span>' +
+          (t.gewijzigd?'<span>🔄 '+formatDatum(t.gewijzigd)+'</span>':'') +
+        '</div>' +
+        '<div class="ticket-sub" style="margin-top:4px;">' + ownerLabel + aanmakerLabel + '</div>' +
+        '<div class="ticket-badges"><span class="priority-badge priority-'+t.priority+'">'+t.priority+'</span><span class="status-badge">'+(t.status||statussen[0])+'</span></div>' +
+      '</div></div>' +
+      (t.note?'<div class="ticket-note">'+t.note+'</div>':'<div class="ticket-note placeholder">Geen opmerking</div>') +
+      '<div class="ticket-actions">' +
+        '<button class="btn btn-secondary btn-sm" onclick="openBewerkTicket(\''+t.id+'\')">✏️ Bewerken</button>' +
+        '<button class="btn btn-danger btn-sm" onclick="verwijderTicket(\''+t.id+'\')">🗑 Verwijder</button>' +
+      '</div></div>';
   }).join('');
 }
 
