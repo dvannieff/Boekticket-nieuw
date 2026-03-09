@@ -500,11 +500,11 @@ async function laadGebruikersLijst() {
   var tbody = document.getElementById('gebruikersTbody');
   tbody.innerHTML = result.data.map(function(u) {
     var naam = [u.voornaam, u.tussenvoegsel, u.achternaam].filter(Boolean).join(' ') || '<span style="color:var(--muted);font-style:italic">Niet ingevuld</span>';
+    var jijLabel = u.user_id === huidigGebruiker.id ? ' <span style="color:var(--accent);font-size:10px;">●</span>' : '';
     var functie = u.functie === 'admin' ? '<span style="color:var(--accent);font-size:11px;background:rgba(79,255,176,0.1);padding:2px 8px;border-radius:4px;border:1px solid rgba(79,255,176,0.3);">Beheerder</span>' : '<span style="color:var(--muted);font-size:11px;">Gebruiker</span>';
     var zichtbaar = u.tickets_zichtbaar_eigen === 'alle' ? 'Alle teamtickets' : 'Eigen tickets';
-    var isZelf = u.user_id === huidigGebruiker.id ? ' (jij)' : '';
     return '<tr style="border-bottom:1px solid rgba(42,45,56,0.5);">' +
-      '<td style="padding:10px 12px;">' + naam + '<span style="color:var(--muted);font-size:10px;">' + isZelf + '</span></td>' +
+      '<td style="padding:10px 12px;">' + naam + jijLabel + '</td>' +
       '<td style="padding:10px 12px;color:var(--muted);font-size:12px;">' + (u.user_email || '—') + '</td>' +
       '<td style="padding:10px 12px;">' + functie + '</td>' +
       '<td style="padding:10px 12px;color:var(--muted);font-size:12px;">' + zichtbaar + '</td>' +
