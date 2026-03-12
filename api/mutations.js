@@ -30,6 +30,8 @@ module.exports = async function handler(req, res) {
     const sessionToken = session.token;
     if (!sessionToken) { res.status(500).json({ error: 'Geen sessie token', details: session }); return; }
     const authHeaders = { 'Authorization': sessionToken, 'Accept': 'application/json' };
+
+    // Laad grootboekrekeningen
     const ledgerRes = await doRequest({
       hostname: 'api.e-boekhouden.nl',
       path: '/v1/ledger?limit=2000&offset=0',
@@ -45,6 +47,22 @@ module.exports = async function handler(req, res) {
         omschrijving: l.description || l.name || l.omschrijving || ''
       };
     });
+
+    // Laad relaties
+    const relatieRes = await doRequest({
+      hostname: 'api.e-boekhouden.nl',
+      path: '/v1/relation?limit=500&offset=0',
+      method: 'GET',
+      headers: authHeaders
+    }, null);
+    const relatieData = JSON.parse(relatieRes.body);
+    const relaties = relatieData.items || relatieData || [];
+    const relatieMap = {};
+    relaties.forEach(function(r) {
+      relatieMap[r.id] = r.name || '';
+    });
+
+    // Laad mutaties
     const mutRes = await doRequest({
       hostname: 'api.e-boekhouden.nl',
       path: '/v1/mutation?limit=500&offset=0',
@@ -57,7 +75,9 @@ module.exports = async function handler(req, res) {
       var ledger = ledgerMap[m.ledgerId] || {};
       m.ledgerCode = ledger.code || String(m.ledgerId || '');
       m.ledgerOmschrijving = ledger.omschrijving || '';
+      m.relatieNaam = m.relationId ? (relatieMap[m.relationId] || '') : '';
     });
+
     const gefilterd = items.filter(function(m) {
       if (!req.query.dateFrom && !req.query.dateTo) return true;
       var datum = (m.date || '').substring(0, 10);
@@ -65,7 +85,7 @@ module.exports = async function handler(req, res) {
       if (req.query.dateTo && datum > req.query.dateTo) return false;
       return true;
     });
-    res.status(200).json({ items: gefilterd, ledgerMap: ledgerMap });
+    res.status(200).json({ items: gefilterd, ledgerMap: ledgerMap, relatieMap: relatieMap });
   } catch(e) {
     res.status(500).json({ error: e.message });
   }
