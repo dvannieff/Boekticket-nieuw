@@ -1353,6 +1353,7 @@ function fwVeld(label, waarde) {
   return '<div><div style="font-size:10px;color:#6b7080;margin-bottom:2px;">'+label+'</div><div style="font-size:13px;">'+waarde+'</div></div>';
 }
 
+function selectPriority(p) {
   huidigPrio = p;
   ['laag','midden','hoog'].forEach(function(x){document.getElementById('prio-'+x).className='selector-option'+(x===p?' sel-'+x:'');});
 }
