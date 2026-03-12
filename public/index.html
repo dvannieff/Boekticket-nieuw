@@ -86,6 +86,9 @@
   @keyframes scaleIn{from{transform:scale(0.95);opacity:0;}to{transform:scale(1);opacity:1;}}
   #floatingWindows > div { animation: scaleIn 0.15s ease; }
   #floatingWindows > div { box-shadow: 0 20px 60px rgba(0,0,0,0.6); }
+  #fw-taskbar { position:fixed;bottom:0;left:0;right:0;height:44px;background:#1e2028;border-top:1px solid #2a2d38;display:flex;align-items:center;gap:6px;padding:0 12px;z-index:9999; }
+  .fw-taskbar-btn { display:flex;align-items:center;gap:8px;padding:4px 14px;background:#16181f;border:1px solid #2a2d38;border-radius:6px;color:#e8eaf0;font-family:'DM Mono',monospace;font-size:12px;cursor:pointer;max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
+  .fw-taskbar-btn:hover { border-color:#4fffb0;color:#4fffb0; }
   .modal h3{font-family:'Syne',sans-serif;font-weight:700;font-size:18px;margin-bottom:6px;}
   .modal .mutation-ref{font-size:12px;color:var(--muted);margin-bottom:20px;}
   .modal textarea{width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:'DM Mono',monospace;font-size:13px;padding:12px 14px;border-radius:8px;outline:none;resize:vertical;min-height:100px;line-height:1.6;transition:border-color 0.2s;margin-bottom:4px;}
@@ -346,6 +349,7 @@
 
 <!-- Floating windows container -->
 <div id="floatingWindows"></div>
+<div id="fw-taskbar" style="display:none;"></div>
 
 
 <!-- Modal -->
@@ -1204,21 +1208,42 @@ function toggleMaximize(winId) {
 function toggleMinimize(winId) {
   var win = document.getElementById(winId);
   var body = win.querySelector('[id^="fw-body-"]');
+  var taskbar = document.getElementById('fw-taskbar');
+  var mutatieId = winId.replace('fw-', '');
   if (win._minimized) {
-    if (body) { body.style.display = 'block'; body.style.overflow = 'auto'; }
+    // Herstel venster
+    win.style.display = 'flex';
+    win.style.position = 'fixed';
+    win.style.top = win._prevTop || '80px';
+    win.style.left = win._prevLeft || '200px';
+    win.style.width = win._prevWidth || '680px';
     win.style.height = win._prevHeight || '500px';
     win.style.minHeight = '300px';
     win.style.resize = 'both';
-    win.style.overflow = 'hidden';
+    if (body) body.style.display = 'block';
     win._minimized = false;
+    // Verwijder uit taakbalk
+    var btn = document.getElementById('tb-' + winId);
+    if (btn) btn.remove();
+    if (!taskbar.children.length) taskbar.style.display = 'none';
   } else {
-    win._prevHeight = win.style.height || '500px';
-    if (body) { body.style.display = 'none'; body.style.overflow = 'hidden'; }
-    win.style.height = 'auto';
-    win.style.minHeight = '0';
-    win.style.resize = 'none';
-    win.style.overflow = 'visible';
+    // Sla positie op en verberg venster
+    win._prevTop = win.style.top;
+    win._prevLeft = win.style.left;
+    win._prevWidth = win.style.width;
+    win._prevHeight = win.style.height;
+    win.style.display = 'none';
     win._minimized = true;
+    // Voeg toe aan taakbalk
+    taskbar.style.display = 'flex';
+    var titleEl = document.getElementById('fw-title-' + mutatieId);
+    var label = 'Mutatie #' + mutatieId + (titleEl && titleEl.textContent ? ' ' + titleEl.textContent : '');
+    var btn = document.createElement('button');
+    btn.className = 'fw-taskbar-btn';
+    btn.id = 'tb-' + winId;
+    btn.innerHTML = '🪟 ' + label;
+    btn.onclick = function() { toggleMinimize(winId); };
+    taskbar.appendChild(btn);
   }
 }
 
@@ -1244,8 +1269,13 @@ function makeDraggable(win, handle) {
 }
 
 function sluitFloatingWindow(mutatieId) {
-  var win = document.getElementById('fw-' + mutatieId);
+  var winId = 'fw-' + mutatieId;
+  var win = document.getElementById(winId);
   if (win) win.remove();
+  var btn = document.getElementById('tb-' + winId);
+  if (btn) btn.remove();
+  var taskbar = document.getElementById('fw-taskbar');
+  if (taskbar && !taskbar.children.length) taskbar.style.display = 'none';
   delete openWindows[mutatieId];
 }
 
