@@ -852,6 +852,7 @@ async function laadTegenrekeningenProgressief() {
     try {
       var resp = await fetch(instellingen.proxyUrl + '/api/mutationdetail?id=' + parseInt(m.id));
       var detail = JSON.parse(await resp.text());
+      if (detail.relatieNaam) { m.relatieNaam = detail.relatieNaam; var relCel = document.getElementById("relatie-" + m.id); if (relCel) relCel.textContent = detail.relatieNaam; }
       if (detail.rows && detail.rows.length > 0) {
         var tegenId = detail.rows[0].ledgerId;
         var tegenLedger = (window.ledgerMap && window.ledgerMap[tegenId]) ? window.ledgerMap[tegenId] : null;
