@@ -1205,15 +1205,19 @@ function toggleMinimize(winId) {
   var win = document.getElementById(winId);
   var body = win.querySelector('[id^="fw-body-"]');
   if (win._minimized) {
-    if (body) body.style.display = 'block';
+    if (body) { body.style.display = 'block'; body.style.overflow = 'auto'; }
+    win.style.height = win._prevHeight || '500px';
+    win.style.minHeight = '300px';
     win.style.resize = 'both';
-    win.style.height = win._prevHeight || 'auto';
+    win.style.overflow = 'hidden';
     win._minimized = false;
   } else {
-    win._prevHeight = win.style.height;
-    if (body) body.style.display = 'none';
-    win.style.resize = 'none';
+    win._prevHeight = win.style.height || '500px';
+    if (body) { body.style.display = 'none'; body.style.overflow = 'hidden'; }
     win.style.height = 'auto';
+    win.style.minHeight = '0';
+    win.style.resize = 'none';
+    win.style.overflow = 'visible';
     win._minimized = true;
   }
 }
