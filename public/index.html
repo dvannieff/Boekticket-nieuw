@@ -910,7 +910,7 @@ function renderMutaties(data) {
     var pills = mt.map(function(t) {
       return '<div class="ticket-pill" onclick="openBewerkTicket(\'' + t.id + '\')"><span class="pill-name">🎫 <strong>' + t.id + '</strong> ' + (t.subject.length>18?t.subject.substring(0,18)+'…':t.subject) + '</span><span class="pill-status"> · ' + (t.status||statussen[0]) + ' · ' + formatDatum(t.aangemaaktISO) + '</span></div>';
     }).join('');
-    return '<tr style="cursor:pointer;" onclick="openMutatieDetail(' + m.id + ')"><td onclick="event.stopPropagation()"><span class="mutation-id">' + m.id + '</span></td><td style="white-space:nowrap">' + (m.datumNL||m.datum) + '</td><td>' + m.omschrijving + '</td><td style="font-size:12px;" id="relatie-' + m.id + '">' + (m.relatieNaam||'…') + '</td><td style="font-size:11px;color:var(--muted)">' + (m.rekening||'—') + (m.rekeningOmschrijving?' <span style="color:var(--muted);opacity:0.6">'+m.rekeningOmschrijving+'</span>':'') + '</td><td style="font-size:11px;color:var(--muted)" id="tegen-' + m.id + '">' + (m.tegenrekening||'…') + '</td><td class="amount ' + (pos?'positive':'negative') + '" style="white-space:nowrap">€ ' + (pos?'+':'') + m.bedrag.toFixed(2).replace('.',',') + '</td><td><div class="ticket-stack">' + pills + '<button class="btn btn-secondary btn-sm" onclick=\'event.stopPropagation();openNieuwTicket(' + JSON.stringify(m) + ')\' style="align-self:flex-start;' + (mt.length?'margin-top:4px':'') + '">+ Ticket</button></div></td></tr>';
+    return '<tr style="cursor:pointer;" onclick="openMutatieDetail(' + m.id + ',' + m.bedrag + ')"><td onclick="event.stopPropagation()"><span class="mutation-id">' + m.id + '</span></td><td style="white-space:nowrap">' + (m.datumNL||m.datum) + '</td><td>' + m.omschrijving + '</td><td style="font-size:12px;" id="relatie-' + m.id + '">' + (m.relatieNaam||'…') + '</td><td style="font-size:11px;color:var(--muted)">' + (m.rekening||'—') + (m.rekeningOmschrijving?' <span style="color:var(--muted);opacity:0.6">'+m.rekeningOmschrijving+'</span>':'') + '</td><td style="font-size:11px;color:var(--muted)" id="tegen-' + m.id + '">' + (m.tegenrekening||'…') + '</td><td class="amount ' + (pos?'positive':'negative') + '" style="white-space:nowrap">€ ' + (pos?'+':'') + m.bedrag.toFixed(2).replace('.',',') + '</td><td><div class="ticket-stack">' + pills + '<button class="btn btn-secondary btn-sm" onclick=\'event.stopPropagation();openNieuwTicket(' + JSON.stringify(m) + ')\' style="align-self:flex-start;' + (mt.length?'margin-top:4px':'') + '">+ Ticket</button></div></td></tr>';
   }).join('');
   var pijl = function(k) { return sorteerKolom===k?(sorteerRichting==='asc'?'↑':'↓'):'↕'; };
   var act = function(k) { return sorteerKolom===k?' actief':''; };
@@ -1201,6 +1201,23 @@ function toggleMaximize(winId) {
   }
 }
 
+function toggleMinimize(winId) {
+  var win = document.getElementById(winId);
+  var body = win.querySelector('[id^="fw-body-"]');
+  if (win._minimized) {
+    if (body) body.style.display = 'block';
+    win.style.resize = 'both';
+    win.style.height = win._prevHeight || 'auto';
+    win._minimized = false;
+  } else {
+    win._prevHeight = win.style.height;
+    if (body) body.style.display = 'none';
+    win.style.resize = 'none';
+    win.style.height = 'auto';
+    win._minimized = true;
+  }
+}
+
 function makeDraggable(win, handle) {
   var dx=0,dy=0,x=0,y=0;
   handle.addEventListener('mousedown', function(e) {
@@ -1254,7 +1271,9 @@ async function openMutatieDetail(mutatieId) {
     if (titleEl) titleEl.textContent = detail.relatieNaam ? '— ' + detail.relatieNaam : (detail.invoiceNumber ? '— ' + detail.invoiceNumber : '');
 
     // Bedrag opmaak
-    var bedrag = detail.amount || 0;
+    // Bedrag: uit mutatielijst halen (detail.amount is soms 0)
+    var mutatieInLijst = (window.mutaties||[]).find(function(x){return String(x.id)===String(mutatieId);});
+    var bedrag = mutatieInLijst ? mutatieInLijst.bedrag : (detail.amount || 0);
     var bedragKleur = bedrag >= 0 ? '#4fffb0' : '#ff4757';
     var bedragTekst = '€ ' + (bedrag >= 0 ? '+' : '') + bedrag.toFixed(2).replace('.',',');
 
