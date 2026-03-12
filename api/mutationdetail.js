@@ -51,8 +51,10 @@ module.exports = async function handler(req, res) {
         }, null);
         const relatie = JSON.parse(relatieRes.body);
         detail.relatieNaam = relatie.name || '';
+        detail.relatie = relatie;
       } catch(e) {
         detail.relatieNaam = '';
+        detail.relatie = null;
       }
     } else {
       detail.relatieNaam = '';
