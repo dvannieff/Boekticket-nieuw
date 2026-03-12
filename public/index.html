@@ -342,6 +342,42 @@
   </div>
 </div>
 
+<!-- Mutatie Detail Modal -->
+<div class="modal-overlay" id="mutatieDetailOverlay" style="display:none" onclick="sluitMutatieDetail(event)">
+  <div class="modal" style="max-width:700px;" onclick="event.stopPropagation()">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+      <h3 style="font-family:'Syne',sans-serif;font-weight:700;font-size:18px;">Mutatie detail</h3>
+      <button onclick="sluitMutatieDetailDirect()" style="background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;line-height:1;">&times;</button>
+    </div>
+    <div id="mutatieDetailLader" style="text-align:center;padding:40px;color:var(--muted);font-size:13px;">Ladenu2026</div>
+    <div id="mutatieDetailInhoud" style="display:none;">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px;">
+        <div style="background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:16px;"><div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Mutatienummer</div><div id="md-id" style="font-size:16px;font-weight:600;color:var(--accent);"></div></div>
+        <div style="background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:16px;"><div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Datum</div><div id="md-datum" style="font-size:15px;"></div></div>
+        <div style="background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:16px;"><div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Factuurnummer</div><div id="md-factuur" style="font-size:15px;"></div></div>
+        <div style="background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:16px;"><div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Bedrag</div><div id="md-bedrag" style="font-size:16px;font-weight:600;"></div></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px;">
+        <div style="background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:16px;"><div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Rekening</div><div id="md-rekening" style="font-size:14px;"></div></div>
+        <div style="background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:16px;"><div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Tegenrekening</div><div id="md-tegenrekening" style="font-size:14px;"></div></div>
+      </div>
+      <div id="md-relatie-wrap" style="background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:20px;display:none;">
+        <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;">Relatie</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+          <div><div style="font-size:11px;color:var(--muted);margin-bottom:2px;">Bedrijfsnaam</div><div id="md-relatie-naam" style="font-size:14px;"></div></div>
+          <div><div style="font-size:11px;color:var(--muted);margin-bottom:2px;">Contactpersoon</div><div id="md-relatie-contact" style="font-size:14px;"></div></div>
+          <div><div style="font-size:11px;color:var(--muted);margin-bottom:2px;">Adres</div><div id="md-relatie-adres" style="font-size:14px;"></div></div>
+          <div><div style="font-size:11px;color:var(--muted);margin-bottom:2px;">Plaats</div><div id="md-relatie-plaats" style="font-size:14px;"></div></div>
+          <div><div style="font-size:11px;color:var(--muted);margin-bottom:2px;">E-mail</div><div id="md-relatie-email" style="font-size:14px;"></div></div>
+          <div><div style="font-size:11px;color:var(--muted);margin-bottom:2px;">Betalingstermijn</div><div id="md-relatie-betaling" style="font-size:14px;"></div></div>
+        </div>
+      </div>
+      <div style="background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:20px;"><div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px;">Boekingsregels</div><div id="md-rows"></div></div>
+      <div style="background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:16px;"><div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px;">Gekoppelde tickets</div><div id="md-tickets"></div></div>
+    </div>
+  </div>
+</div>
+
 <!-- Modal -->
 <div class="modal-overlay" id="modalOverlay" style="display:none" onclick="sluitModal(event)">
   <div class="modal" onclick="event.stopPropagation()">
@@ -904,7 +940,7 @@ function renderMutaties(data) {
     var pills = mt.map(function(t) {
       return '<div class="ticket-pill" onclick="openBewerkTicket(\'' + t.id + '\')"><span class="pill-name">🎫 <strong>' + t.id + '</strong> ' + (t.subject.length>18?t.subject.substring(0,18)+'…':t.subject) + '</span><span class="pill-status"> · ' + (t.status||statussen[0]) + ' · ' + formatDatum(t.aangemaaktISO) + '</span></div>';
     }).join('');
-    return '<tr><td><span class="mutation-id">' + m.id + '</span></td><td style="white-space:nowrap">' + (m.datumNL||m.datum) + '</td><td>' + m.omschrijving + '</td><td style="font-size:12px;" id="relatie-' + m.id + '">' + (m.relatieNaam||'…') + '</td><td style="font-size:11px;color:var(--muted)">' + (m.rekening||'—') + (m.rekeningOmschrijving?' <span style="color:var(--muted);opacity:0.6">'+m.rekeningOmschrijving+'</span>':'') + '</td><td style="font-size:11px;color:var(--muted)" id="tegen-' + m.id + '">' + (m.tegenrekening||'…') + '</td><td class="amount ' + (pos?'positive':'negative') + '" style="white-space:nowrap">€ ' + (pos?'+':'') + m.bedrag.toFixed(2).replace('.',',') + '</td><td><div class="ticket-stack">' + pills + '<button class="btn btn-secondary btn-sm" onclick=\'openNieuwTicket(' + JSON.stringify(m) + ')\' style="align-self:flex-start;' + (mt.length?'margin-top:4px':'') + '">+ Ticket</button></div></td></tr>';
+    return '<tr style="cursor:pointer;" onclick="openMutatieDetail(' + m.id + ')"><td onclick="event.stopPropagation()"><span class="mutation-id">' + m.id + '</span></td><td style="white-space:nowrap">' + (m.datumNL||m.datum) + '</td><td>' + m.omschrijving + '</td><td style="font-size:12px;" id="relatie-' + m.id + '">' + (m.relatieNaam||'…') + '</td><td style="font-size:11px;color:var(--muted)">' + (m.rekening||'—') + (m.rekeningOmschrijving?' <span style="color:var(--muted);opacity:0.6">'+m.rekeningOmschrijving+'</span>':'') + '</td><td style="font-size:11px;color:var(--muted)" id="tegen-' + m.id + '">' + (m.tegenrekening||'…') + '</td><td class="amount ' + (pos?'positive':'negative') + '" style="white-space:nowrap">€ ' + (pos?'+':'') + m.bedrag.toFixed(2).replace('.',',') + '</td><td><div class="ticket-stack">' + pills + '<button class="btn btn-secondary btn-sm" onclick=\'event.stopPropagation();openNieuwTicket(' + JSON.stringify(m) + ')\' style="align-self:flex-start;' + (mt.length?'margin-top:4px':'') + '">+ Ticket</button></div></td></tr>';
   }).join('');
   var pijl = function(k) { return sorteerKolom===k?(sorteerRichting==='asc'?'↑':'↓'):'↕'; };
   var act = function(k) { return sorteerKolom===k?' actief':''; };
@@ -1143,6 +1179,103 @@ async function openBewerkTicket(id) {
 
 function sluitModal(e){if(e.target.id==='modalOverlay')sluitModalDirect();}
 function sluitModalDirect(){document.getElementById('modalOverlay').style.display='none';}
+
+function sluitMutatieDetail(e){if(e.target.id==='mutatieDetailOverlay')sluitMutatieDetailDirect();}
+function sluitMutatieDetailDirect(){document.getElementById('mutatieDetailOverlay').style.display='none';}
+
+async function openMutatieDetail(mutatieId) {
+  var overlay = document.getElementById('mutatieDetailOverlay');
+  var lader = document.getElementById('mutatieDetailLader');
+  var inhoud = document.getElementById('mutatieDetailInhoud');
+  overlay.style.display = 'flex';
+  lader.style.display = 'block';
+  inhoud.style.display = 'none';
+
+  try {
+    var resp = await fetch(instellingen.proxyUrl + '/api/mutationdetail?id=' + parseInt(mutatieId));
+    var detail = await resp.json();
+
+    // Basisgegevens
+    document.getElementById('md-id').textContent = detail.id;
+    document.getElementById('md-datum').textContent = detail.date ? detail.date.substring(8,10)+'-'+detail.date.substring(5,7)+'-'+detail.date.substring(0,4) : '—';
+    document.getElementById('md-factuur').textContent = detail.invoiceNumber || '—';
+    var bedrag = detail.amount || 0;
+    var bedragEl = document.getElementById('md-bedrag');
+    bedragEl.textContent = '€ ' + (bedrag >= 0 ? '+' : '') + bedrag.toFixed(2).replace('.',',');
+    bedragEl.style.color = bedrag >= 0 ? 'var(--accent)' : 'var(--danger)';
+
+    // Rekening
+    var ledger = (window.ledgerMap && window.ledgerMap[detail.ledgerId]) || {};
+    document.getElementById('md-rekening').innerHTML = (ledger.code || detail.ledgerId || '—') + (ledger.omschrijving ? ' <span style="color:var(--muted);font-size:12px;">'+ledger.omschrijving+'</span>' : '');
+
+    // Tegenrekening
+    var tegenEl = document.getElementById('md-tegenrekening');
+    if (detail.rows && detail.rows.length > 0) {
+      var tegenLedger = (window.ledgerMap && window.ledgerMap[detail.rows[0].ledgerId]) || {};
+      tegenEl.innerHTML = (tegenLedger.code || detail.rows[0].ledgerId || '—') + (tegenLedger.omschrijving ? ' <span style="color:var(--muted);font-size:12px;">'+tegenLedger.omschrijving+'</span>' : '');
+    } else { tegenEl.textContent = '—'; }
+
+    // Relatie
+    if (detail.relatieNaam) {
+      document.getElementById('md-relatie-wrap').style.display = 'block';
+      document.getElementById('md-relatie-naam').textContent = detail.relatieNaam || '—';
+      document.getElementById('md-relatie-contact').textContent = detail.relatie ? (detail.relatie.contact || '—') : '—';
+      document.getElementById('md-relatie-adres').textContent = detail.relatie ? (detail.relatie.address || '—') : '—';
+      document.getElementById('md-relatie-plaats').textContent = detail.relatie ? ((detail.relatie.postalCode||'') + ' ' + (detail.relatie.city||'')).trim() || '—' : '—';
+      document.getElementById('md-relatie-email').textContent = detail.relatie ? (detail.relatie.emailAddress || '—') : '—';
+      document.getElementById('md-relatie-betaling').textContent = detail.termOfPayment ? detail.termOfPayment + ' dagen' : '—';
+    } else {
+      document.getElementById('md-relatie-wrap').style.display = 'none';
+    }
+
+    // Boekingsregels
+    var rowsEl = document.getElementById('md-rows');
+    if (detail.rows && detail.rows.length > 0) {
+      rowsEl.innerHTML = '<table style="width:100%;border-collapse:collapse;font-size:12px;">' +
+        '<thead><tr style="color:var(--muted);border-bottom:1px solid var(--border);">' +
+        '<th style="text-align:left;padding:6px 8px;">Grootboek</th>' +
+        '<th style="text-align:left;padding:6px 8px;">BTW code</th>' +
+        '<th style="text-align:right;padding:6px 8px;">BTW bedrag</th>' +
+        '<th style="text-align:right;padding:6px 8px;">Bedrag</th></tr></thead><tbody>' +
+        detail.rows.map(function(row) {
+          var rLedger = (window.ledgerMap && window.ledgerMap[row.ledgerId]) || {};
+          return '<tr style="border-bottom:1px solid rgba(42,45,56,0.5);">' +
+            '<td style="padding:8px;">' + (rLedger.code || row.ledgerId) + (rLedger.omschrijving ? ' <span style="color:var(--muted);">'+rLedger.omschrijving+'</span>' : '') + '</td>' +
+            '<td style="padding:8px;color:var(--muted);">' + (row.vatCode || '—') + '</td>' +
+            '<td style="padding:8px;text-align:right;color:var(--muted);">€ ' + (row.vatAmount||0).toFixed(2).replace('.',',') + '</td>' +
+            '<td style="padding:8px;text-align:right;font-weight:600;">€ ' + (row.amount||0).toFixed(2).replace('.',',') + '</td></tr>';
+        }).join('') + '</tbody></table>';
+    } else { rowsEl.textContent = 'Geen boekingsregels.'; }
+
+    // Tickets
+    var ticketsEl = document.getElementById('md-tickets');
+    var mt = (window.tickets||[]).filter(function(t){ return String(t.mutatieId)===String(mutatieId); });
+    if (mt.length > 0) {
+      ticketsEl.innerHTML = '<table style="width:100%;border-collapse:collapse;font-size:12px;">' +
+        '<thead><tr style="color:var(--muted);border-bottom:1px solid var(--border);">' +
+        '<th style="text-align:left;padding:6px 8px;">ID</th>' +
+        '<th style="text-align:left;padding:6px 8px;">Onderwerp</th>' +
+        '<th style="text-align:left;padding:6px 8px;">Status</th>' +
+        '<th style="text-align:left;padding:6px 8px;">Prioriteit</th>' +
+        '<th style="text-align:left;padding:6px 8px;">Owner</th></tr></thead><tbody>' +
+        mt.map(function(t) {
+          return '<tr style="border-bottom:1px solid rgba(42,45,56,0.5);cursor:pointer;" onclick="sluitMutatieDetailDirect();openBewerkTicket(\''+t.id+'\')">' +
+            '<td style="padding:8px;color:var(--accent);">' + t.id + '</td>' +
+            '<td style="padding:8px;">' + (t.subject||'—') + '</td>' +
+            '<td style="padding:8px;"><span style="background:rgba(79,255,176,0.1);color:var(--accent);padding:2px 8px;border-radius:4px;font-size:11px;">' + (t.status||'—') + '</span></td>' +
+            '<td style="padding:8px;color:var(--muted);">' + (t.priority||'—') + '</td>' +
+            '<td style="padding:8px;color:var(--muted);">' + (t.ownerNaam||t.ownerEmail||'—') + '</td></tr>';
+        }).join('') + '</tbody></table>';
+    } else {
+      ticketsEl.innerHTML = '<div style="color:var(--muted);font-size:12px;padding:8px 0;">Geen tickets gekoppeld aan deze mutatie. <button class="btn btn-secondary btn-sm" onclick="sluitMutatieDetailDirect();var m=mutaties.find(function(x){return String(x.id)===\''+mutatieId+'\';});if(m)openNieuwTicket(m);" style="margin-left:8px;">+ Ticket aanmaken</button></div>';
+    }
+
+    lader.style.display = 'none';
+    inhoud.style.display = 'block';
+  } catch(e) {
+    lader.textContent = 'Fout bij laden: ' + e.message;
+  }
+}
 
 function selectPriority(p) {
   huidigPrio = p;
