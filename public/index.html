@@ -419,6 +419,7 @@ var ticketsZichtbaarInstelling = 'eigen';
 function toonAuthTab(tab, el) {
   document.querySelectorAll('.auth-tab').forEach(function(t) { t.classList.remove('active'); });
   el.classList.add('active');
+  document.getElementById('authBevestiging').style.display = 'none';
   document.getElementById('authLogin').style.display = tab === 'login' ? 'block' : 'none';
   document.getElementById('authRegistreren').style.display = tab === 'registreren' ? 'block' : 'none';
 }
@@ -430,6 +431,14 @@ function toonLoginScherm() {
   document.querySelectorAll('.auth-tab').forEach(function(t) {
     t.classList.toggle('active', t.textContent.includes('Inloggen'));
   });
+}
+
+function wisselAuthTab(el, tab) {
+  document.getElementById('authBevestiging').style.display = 'none';
+  document.querySelectorAll('.auth-tab').forEach(function(t) { t.classList.remove('active'); });
+  el.classList.add('active');
+  document.getElementById('authLogin').style.display = tab === 'login' ? 'block' : 'none';
+  document.getElementById('authRegistreren').style.display = tab === 'registreren' ? 'block' : 'none';
 }
 
 async function doeLogin() {
@@ -636,15 +645,17 @@ async function openGebruikerBewerken(userId) {
 
 async function slaGebruikerBewerkingOp() {
   var userId = document.getElementById('bewerkGebruikerId').value;
+  var userEmail = document.getElementById('bewerkEmail').value.trim();
   var result = await sb.from('gebruiker_instellingen').upsert({
     user_id: userId,
+    user_email: userEmail,
     voorletter: document.getElementById('bewerkVoorletter').value.trim(),
     voornaam: document.getElementById('bewerkVoornaam').value.trim(),
     tussenvoegsel: document.getElementById('bewerkTussenvoegsel').value.trim(),
     achternaam: document.getElementById('bewerkAchternaam').value.trim(),
     functie: document.getElementById('bewerkFunctie').value,
     tickets_zichtbaar_eigen: document.getElementById('bewerkTicketsZichtbaar').value
-  });
+  }, { onConflict: 'user_id' });
   if (result.error) { toonNotificatie('Fout: ' + result.error.message, true); return; }
   document.getElementById('gebruikerBewerkCard').style.display = 'none';
   await laadGebruikersLijst();
