@@ -856,24 +856,31 @@ async function laadMutaties() {
 }
 
 async function laadTegenrekeningenProgressief() {
-  for (var i = 0; i < mutaties.length; i++) {
-    var m = mutaties[i];
-    if (!m.id || m.id.startsWith('MUT-')) continue;
-    try {
-      var resp = await fetch(instellingen.proxyUrl + '/api/mutationdetail?id=' + parseInt(m.id));
-      var detail = JSON.parse(await resp.text());
-      if (detail.relatieNaam) { m.relatieNaam = detail.relatieNaam; var relCel = document.getElementById("relatie-" + m.id); if (relCel) relCel.textContent = detail.relatieNaam; }
-      if (detail.rows && detail.rows.length > 0) {
-        var tegenId = detail.rows[0].ledgerId;
-        var tegenLedger = (window.ledgerMap && window.ledgerMap[tegenId]) ? window.ledgerMap[tegenId] : null;
-        var tegenCode = tegenLedger ? tegenLedger.code : String(tegenId);
-        var tegenOmschrijving = tegenLedger ? tegenLedger.omschrijving : '';
-        m.tegenrekening = tegenCode;
-        m.tegenrekeningOmschrijving = tegenOmschrijving;
-        var cel = document.getElementById('tegen-' + m.id);
-        if (cel) cel.innerHTML = tegenCode + (tegenOmschrijving ? ' <span style="color:var(--muted);opacity:0.6">' + tegenOmschrijving + '</span>' : '');
-      }
-    } catch(e) {}
+  var teVerwerken = mutaties.filter(function(m){ return m.id && !String(m.id).startsWith('MUT-'); });
+  var batchGrootte = 5;
+  for (var i = 0; i < teVerwerken.length; i += batchGrootte) {
+    var batch = teVerwerken.slice(i, i + batchGrootte);
+    await Promise.all(batch.map(async function(m) {
+      try {
+        var resp = await fetch(instellingen.proxyUrl + '/api/mutationdetail?id=' + parseInt(m.id));
+        var detail = JSON.parse(await resp.text());
+        if (detail.relatieNaam) {
+          m.relatieNaam = detail.relatieNaam;
+          var relCel = document.getElementById('relatie-' + m.id);
+          if (relCel) relCel.textContent = detail.relatieNaam;
+        }
+        if (detail.rows && detail.rows.length > 0) {
+          var tegenId = detail.rows[0].ledgerId;
+          var tegenLedger = (window.ledgerMap && window.ledgerMap[tegenId]) ? window.ledgerMap[tegenId] : null;
+          var tegenCode = tegenLedger ? tegenLedger.code : String(tegenId);
+          var tegenOmschrijving = tegenLedger ? tegenLedger.omschrijving : '';
+          m.tegenrekening = tegenCode;
+          m.tegenrekeningOmschrijving = tegenOmschrijving;
+          var cel = document.getElementById('tegen-' + m.id);
+          if (cel) cel.innerHTML = tegenCode + (tegenOmschrijving ? ' <span style="color:var(--muted);opacity:0.6">' + tegenOmschrijving + '</span>' : '');
+        }
+      } catch(e) {}
+    }));
   }
 }
 
