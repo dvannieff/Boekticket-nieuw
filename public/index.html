@@ -561,13 +561,16 @@ async function laadGebruikerInstellingen() {
 }
 
 async function slaInstellingenOp() {
-  await sb.from('gebruiker_instellingen').upsert({
+  var result = await sb.from('gebruiker_instellingen').upsert({
     user_id: huidigGebruiker.id,
+    user_email: huidigGebruiker.email,
     proxy_url: instellingen.proxyUrl || null,
     ticket_prefix: instellingen.ticketPrefix || 'TKT',
     ticket_teller: ticketTeller,
     statussen: statussen
-  });
+  }, { onConflict: 'user_id' });
+  if (result.error) { toonNotificatie('Fout bij opslaan: ' + result.error.message, true); return false; }
+  return true;
 }
 
 async function laadBeheerderInstellingen() {
@@ -1010,15 +1013,19 @@ function renderStatusList() {
   }).join('');
 }
 
-function voegStatusToe() {
+async function voegStatusToe() {
   var input = document.getElementById('nieuweStatus');
   var val = input.value.trim(); if (!val) return;
-  statussen.push(val); input.value=''; renderStatusList(); toonNotificatie('Status "'+val+'" toegevoegd');
+  statussen.push(val); input.value=''; renderStatusList();
+  var ok = await slaInstellingenOp();
+  if (ok !== false) toonNotificatie('✓ Status "'+val+'" opgeslagen');
 }
 
-function verwijderStatus(i) {
+async function verwijderStatus(i) {
   if (statussen.length<=1){toonNotificatie('Minimaal één status vereist',true);return;}
   statussen.splice(i,1); renderStatusList();
+  var ok = await slaInstellingenOp();
+  if (ok !== false) toonNotificatie('✓ Status verwijderd');
 }
 
 function gebruikerNaam(userId, email) {
