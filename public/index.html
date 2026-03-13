@@ -570,14 +570,12 @@ async function laadGebruikerInstellingen() {
 }
 
 async function slaInstellingenOp() {
-  var result = await sb.from('gebruiker_instellingen').upsert({
-    user_id: huidigGebruiker.id,
-    user_email: huidigGebruiker.email,
+  var result = await sb.from('gebruiker_instellingen').update({
     proxy_url: instellingen.proxyUrl || null,
     ticket_prefix: instellingen.ticketPrefix || 'TKT',
     ticket_teller: ticketTeller,
     statussen: statussen
-  }, { onConflict: 'user_id' });
+  }).eq('user_id', huidigGebruiker.id);
   if (result.error) { toonNotificatie('Fout bij opslaan: ' + result.error.message, true); return false; }
   return true;
 }
@@ -593,14 +591,14 @@ async function laadBeheerderInstellingen() {
 
 async function slaRegistratieOp() {
   var reg = document.getElementById('registratieInstelling').value;
-  await sb.from('gebruiker_instellingen').upsert({ user_id: huidigGebruiker.id, registratie_instelling: reg });
+  await sb.from('gebruiker_instellingen').update({ registratie_instelling: reg }).eq('user_id', huidigGebruiker.id);
   toonRegistratieTab(reg);
   toonNotificatie('✓ Registratie-instelling opgeslagen');
 }
 
 async function slaGebruikersBeheerOp() {
   var reg = document.getElementById('registratieInstelling') ? document.getElementById('registratieInstelling').value : 'gesloten';
-  await sb.from('gebruiker_instellingen').upsert({ user_id: huidigGebruiker.id, registratie_instelling: reg });
+  await sb.from('gebruiker_instellingen').update({ registratie_instelling: reg }).eq('user_id', huidigGebruiker.id);
   toonRegistratieTab(reg);
   toonNotificatie('✓ Instellingen opgeslagen');
 }
@@ -645,17 +643,14 @@ async function openGebruikerBewerken(userId) {
 
 async function slaGebruikerBewerkingOp() {
   var userId = document.getElementById('bewerkGebruikerId').value;
-  var userEmail = document.getElementById('bewerkEmail').value.trim();
-  var result = await sb.from('gebruiker_instellingen').upsert({
-    user_id: userId,
-    user_email: userEmail,
+  var result = await sb.from('gebruiker_instellingen').update({
     voorletter: document.getElementById('bewerkVoorletter').value.trim(),
     voornaam: document.getElementById('bewerkVoornaam').value.trim(),
     tussenvoegsel: document.getElementById('bewerkTussenvoegsel').value.trim(),
     achternaam: document.getElementById('bewerkAchternaam').value.trim(),
     functie: document.getElementById('bewerkFunctie').value,
     tickets_zichtbaar_eigen: document.getElementById('bewerkTicketsZichtbaar').value
-  }, { onConflict: 'user_id' });
+  }).eq('user_id', userId);
   if (result.error) { toonNotificatie('Fout: ' + result.error.message, true); return; }
   document.getElementById('gebruikerBewerkCard').style.display = 'none';
   await laadGebruikersLijst();
