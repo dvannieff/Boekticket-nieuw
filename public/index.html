@@ -895,6 +895,8 @@ function sorteer(kolom) {
     var av = a[kolom]||'', bv = b[kolom]||'';
     if (kolom==='bedrag') { av=parseFloat(av)||0; bv=parseFloat(bv)||0; }
     else if (kolom==='id') { av=parseInt(av)||0; bv=parseInt(bv)||0; }
+    else if (kolom==='factuurnummer') { av=String(a.omschrijving||'').toLowerCase(); bv=String(b.omschrijving||'').toLowerCase(); }
+    else if (kolom==='relatie') { av=String(a.relatieNaam||'').toLowerCase(); bv=String(b.relatieNaam||'').toLowerCase(); }
     else { av=String(av).toLowerCase(); bv=String(bv).toLowerCase(); }
     if (av<bv) return sorteerRichting==='asc'?-1:1;
     if (av>bv) return sorteerRichting==='asc'?1:-1;
@@ -920,9 +922,11 @@ function renderMutaties(data) {
   var act = function(k) { return sorteerKolom===k?' actief':''; };
   var thID     = '<th class="sorteerbaar' + act('id')       + '" onclick="sorteer(\'id\')">ID <span class="sort-pijl">'         + pijl('id')       + '</span></th>';
   var thDatum  = '<th class="sorteerbaar' + act('datum')    + '" onclick="sorteer(\'datum\')">Datum <span class="sort-pijl">'   + pijl('datum')    + '</span></th>';
-  var thRek    = '<th class="sorteerbaar' + act('rekening') + '" onclick="sorteer(\'rekening\')">Rekening <span class="sort-pijl">' + pijl('rekening') + '</span></th>';
-  var thBedrag = '<th class="sorteerbaar' + act('bedrag')   + '" onclick="sorteer(\'bedrag\')">Bedrag <span class="sort-pijl">' + pijl('bedrag')   + '</span></th>';
-  content.innerHTML = '<table><thead><tr>' + thID + thDatum + '<th>Factuurnummer</th><th>Relatie</th>' + thRek + '<th>Tegenrekening</th>' + thBedrag + '<th>Tickets</th></tr></thead><tbody>' + rows + '</tbody></table>';
+  var thRek      = '<th class="sorteerbaar' + act('rekening')     + '" onclick="sorteer(\'rekening\')">Rekening <span class="sort-pijl">' + pijl('rekening')     + '</span></th>';
+  var thBedrag   = '<th class="sorteerbaar' + act('bedrag')       + '" onclick="sorteer(\'bedrag\')">Bedrag <span class="sort-pijl">' + pijl('bedrag')       + '</span></th>';
+  var thFactuur  = '<th class="sorteerbaar' + act('factuurnummer') + '" onclick="sorteer(\'factuurnummer\')">Factuurnummer <span class="sort-pijl">' + pijl('factuurnummer') + '</span></th>';
+  var thRelatie  = '<th class="sorteerbaar' + act('relatie')       + '" onclick="sorteer(\'relatie\')">Relatie <span class="sort-pijl">' + pijl('relatie')       + '</span></th>';
+  content.innerHTML = '<table><thead><tr>' + thID + thDatum + thFactuur + thRelatie + thRek + '<th>Tegenrekening</th>' + thBedrag + '<th>Tickets</th></tr></thead><tbody>' + rows + '</tbody></table>';
 }
 
 function filterMutaties() {
