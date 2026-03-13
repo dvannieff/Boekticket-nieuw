@@ -157,6 +157,14 @@
       <div class="auth-fout" id="regFout"></div>
       <button class="btn btn-primary" style="width:100%;justify-content:center;" onclick="doeRegistreren()">→ Registreren</button>
     </div>
+    <div id="authBevestiging" style="display:none;text-align:center;padding:16px 0;">
+      <div style="font-size:40px;margin-bottom:16px;">📧</div>
+      <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:18px;margin-bottom:8px;">Bevestigingsmail verstuurd!</div>
+      <div style="font-size:13px;color:var(--muted);margin-bottom:4px;">We hebben een e-mail gestuurd naar:</div>
+      <div id="bevestigingEmail" style="font-size:14px;color:var(--accent);margin-bottom:16px;font-weight:600;"></div>
+      <div style="font-size:12px;color:var(--muted);line-height:1.6;margin-bottom:20px;">Klik op de link in de e-mail om je account te activeren. Controleer ook je spammap als je de mail niet ziet.</div>
+      <button class="btn btn-secondary" style="width:100%;justify-content:center;" onclick="toonLoginScherm()">← Terug naar inloggen</button>
+    </div>
   </div>
 </div>
 
@@ -414,6 +422,15 @@ function toonAuthTab(tab, el) {
   document.getElementById('authRegistreren').style.display = tab === 'registreren' ? 'block' : 'none';
 }
 
+function toonLoginScherm() {
+  document.getElementById('authBevestiging').style.display = 'none';
+  document.getElementById('authRegistreren').style.display = 'none';
+  document.getElementById('authLogin').style.display = 'block';
+  document.querySelectorAll('.auth-tab').forEach(function(t) {
+    t.classList.toggle('active', t.textContent.includes('Inloggen'));
+  });
+}
+
 async function doeLogin() {
   var email = document.getElementById('loginEmail').value.trim();
   var wachtwoord = document.getElementById('loginWachtwoord').value;
@@ -448,7 +465,9 @@ async function doeRegistreren() {
   if (wachtwoord.length < 6) { fout.textContent = 'Wachtwoord minimaal 6 tekens.'; fout.style.display = 'block'; return; }
   var result = await sb.auth.signUp({ email: email, password: wachtwoord });
   if (result.error) { fout.textContent = result.error.message; fout.style.display = 'block'; return; }
-  toonNotificatie('Account aangemaakt! Controleer je e-mail om te bevestigen.');
+  document.getElementById('authRegistreren').style.display = 'none';
+  document.getElementById('bevestigingEmail').textContent = email;
+  document.getElementById('authBevestiging').style.display = 'block';
 }
 
 async function doeUitloggen() {
