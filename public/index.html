@@ -192,8 +192,8 @@
         <label style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;">T/M</label>
         <input type="date" id="filterTot" class="search-box" style="width:160px">
         <button class="btn btn-secondary btn-sm" onclick="laadMutaties()">↻ Toepassen</button>
-        <button class="btn btn-secondary btn-sm" onclick="setHaalMaand()">📅 Deze maand</button>
-        <button class="btn btn-secondary btn-sm" onclick="setHaalJaar()">📅 Heel jaar</button>
+        <button class="btn btn-secondary btn-sm periode-btn" id="periode-maand" onclick="setHaalMaand()">📅 Deze maand</button>
+        <button class="btn btn-secondary btn-sm periode-btn" id="periode-jaar" onclick="setHaalJaar()">📅 Heel jaar</button>
       </div>
     </div>
     <div class="table-wrap"><div id="mutatiesContent">
@@ -493,7 +493,7 @@ async function initialiseerApp(user) {
 
   if (instellingen.proxyUrl) {
     document.getElementById('proxyUrl').value = instellingen.proxyUrl;
-    laadMutaties();
+    setHaalMaand();
   }
 
   // Laad gebruikerslijst voor owner dropdown
@@ -934,6 +934,9 @@ function setHaalMaand() {
   var nu = new Date();
   document.getElementById('filterVan').value = nu.getFullYear()+'-'+String(nu.getMonth()+1).padStart(2,'0')+'-01';
   document.getElementById('filterTot').value = nu.toISOString().substring(0,10);
+  document.querySelectorAll('.periode-btn').forEach(function(b){b.style.borderColor='';b.style.color='';});
+  var btn = document.getElementById('periode-maand');
+  if (btn){btn.style.borderColor='var(--accent)';btn.style.color='var(--accent)';}
   laadMutaties();
 }
 
@@ -941,6 +944,9 @@ function setHaalJaar() {
   var nu = new Date();
   document.getElementById('filterVan').value = nu.getFullYear()+'-01-01';
   document.getElementById('filterTot').value = nu.toISOString().substring(0,10);
+  document.querySelectorAll('.periode-btn').forEach(function(b){b.style.borderColor='';b.style.color='';});
+  var btn = document.getElementById('periode-jaar');
+  if (btn){btn.style.borderColor='var(--accent)';btn.style.color='var(--accent)';}
   laadMutaties();
 }
 
