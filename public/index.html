@@ -1506,8 +1506,11 @@ function renderTickets() {
 function toonNotificatie(tekst, isErr) {
   var el = document.createElement('div');
   el.className = 'notification'+(isErr?' err':'');
-  el.textContent = tekst; document.body.appendChild(el);
-  setTimeout(function(){el.remove();},2800);
+  el.textContent = tekst;
+  if (isErr) el.style.cursor = 'pointer';
+  el.onclick = function() { el.remove(); };
+  document.body.appendChild(el);
+  setTimeout(function(){el.remove();}, isErr ? 10000 : 2800);
 }
 
 // ===== STARTUP =====
