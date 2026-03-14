@@ -54,7 +54,15 @@
   .search-box:focus{border-color:var(--accent);}
   .badge{background:var(--surface2);border:1px solid var(--border);color:var(--muted);font-size:11px;padding:4px 10px;border-radius:20px;}
   .table-wrap{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;}
+  .mutaties-wrap{overflow-y:auto;max-height:calc(100vh - 310px);border-radius:12px;}
+  .mutaties-wrap table{border-collapse:collapse;width:100%;}
+  .mutaties-wrap thead th{position:sticky;top:0;z-index:2;background:var(--surface);border-bottom:1px solid var(--border);}
+  .mutaties-wrap::-webkit-scrollbar{width:6px;}
+  .mutaties-wrap::-webkit-scrollbar-track{background:transparent;}
+  .mutaties-wrap::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
+  .mutaties-wrap::-webkit-scrollbar-thumb:hover{background:var(--muted);}
   table{width:100%;border-collapse:collapse;}thead{background:var(--surface2);}
+  .mutaties-wrap thead{background:var(--surface);}
   th{text-align:left;padding:12px 16px;font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);border-bottom:1px solid var(--border);font-weight:400;}
   td{padding:10px 16px;font-size:13px;border-bottom:1px solid rgba(42,45,56,0.5);vertical-align:top;}
   tr:last-child td{border-bottom:none;}tr:hover td{background:rgba(255,255,255,0.02);}
@@ -205,7 +213,7 @@
         <button class="btn btn-secondary btn-sm periode-btn" id="periode-jaar" onclick="setHaalJaar()">📅 Heel jaar</button>
       </div>
     </div>
-    <div class="table-wrap"><div id="mutatiesContent">
+    <div class="table-wrap mutaties-wrap"><div id="mutatiesContent">
       <div class="empty-state"><div class="icon">🔌</div><p>Volg de stappen bij <strong>⚙️ Instellingen</strong><br>om je mutaties op te halen.</p></div>
     </div></div>
   </div>
