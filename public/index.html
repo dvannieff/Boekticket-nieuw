@@ -349,8 +349,8 @@
         <button class="btn btn-secondary btn-sm" onclick="slaNummeringOp()">✓ Opslaan</button>
       </div>
       <div class="settings-card">
-        <h2>🏷️ Statussen beheren</h2>
-        <p>Voeg statussen toe of verwijder ze. Vergeet niet op <strong>Opslaan</strong> te klikken.</p>
+        <h2>🏷️ Ticket statussen beheren</h2>
+        <p>Voeg statussen toe of verwijder ze voor tickets.</p>
         <div class="status-list" id="statusList"></div>
         <div class="add-status-row">
           <input class="add-status-input" id="nieuweStatus" type="text" placeholder="Nieuwe status toevoegen..." onkeydown="if(event.key==='Enter')voegStatusToe()">
@@ -358,6 +358,24 @@
         </div>
         <div style="margin-top:14px;">
           <button class="btn btn-secondary btn-sm" onclick="slaStatussenOp()">✓ Opslaan</button>
+        </div>
+      </div>
+      <div class="settings-card">
+        <h2>📋 Taak statussen beheren</h2>
+        <p>Voeg statussen toe of verwijder ze voor taken.</p>
+        <div class="status-list" id="taakStatusList"></div>
+        <div class="add-status-row">
+          <input class="add-status-input" id="nieuweTaakStatus" type="text" placeholder="Nieuwe taakstatus toevoegen..." onkeydown="if(event.key==='Enter')voegTaakStatusToe()">
+          <button class="btn btn-primary btn-sm" onclick="voegTaakStatusToe()">+ Toevoegen</button>
+        </div>
+      </div>
+      <div class="settings-card">
+        <h2>⚡ Taak prioriteiten beheren</h2>
+        <p>Voeg prioriteiten toe of verwijder ze voor taken.</p>
+        <div class="status-list" id="taakPrioList"></div>
+        <div class="add-status-row">
+          <input class="add-status-input" id="nieuweTaakPrio" type="text" placeholder="Nieuwe prioriteit toevoegen..." onkeydown="if(event.key==='Enter')voegTaakPrioToe()">
+          <button class="btn btn-primary btn-sm" onclick="voegTaakPrioToe()">+ Toevoegen</button>
         </div>
       </div>
     </div>
@@ -413,6 +431,10 @@ var instellingen = {};
 var tickets = [];
 var statussen = ['Open','In behandeling','Afgerond'];
 var ticketTeller = 0;
+var taakStatussen = ['Open','In uitvoering','Gereed'];
+var taakPrioriteiten = ['Laag','Normaal','Hoog','Urgent'];
+var taakTeller = 0;
+var taakWindowState = {};
 var mutaties = [];
 var huidigeMutatie = null, huidigPrio = 'laag', bewerkTicketId = null, ticketFilter = 'alle';
 var sorteerKolom = 'id', sorteerRichting = 'desc', sorteerInitieel = true;
@@ -543,6 +565,11 @@ async function initialiseerApp(user) {
   document.getElementById('tktStartnummer').value = (instellingen.ticketTeller || 0) + 1;
   ticketTeller = instellingen.ticketTeller || 0;
   statussen = instellingen.statussen || ['Open','In behandeling','Afgerond'];
+  taakStatussen = instellingen.taakStatussen || ['Open','In uitvoering','Gereed'];
+  taakPrioriteiten = instellingen.taakPrioriteiten || ['Laag','Normaal','Hoog','Urgent'];
+  taakTeller = instellingen.taakTeller || 0;
+  renderTaakStatusList();
+  renderTaakPrioList();
 
   renderStatusList();
   renderFilterBar();
@@ -568,7 +595,10 @@ async function laadGebruikerInstellingen() {
       proxyUrl: result.data.proxy_url,
       ticketPrefix: result.data.ticket_prefix,
       ticketTeller: result.data.ticket_teller,
-      statussen: result.data.statussen
+      statussen: result.data.statussen,
+      taakStatussen: result.data.taak_statussen,
+      taakPrioriteiten: result.data.taak_prioriteiten,
+      taakTeller: result.data.taak_teller
     };
   } else {
     // Nieuwe gebruiker — maak instellingen aan
@@ -582,7 +612,10 @@ async function slaInstellingenOp() {
     proxy_url: instellingen.proxyUrl || null,
     ticket_prefix: instellingen.ticketPrefix || 'TKT',
     ticket_teller: ticketTeller,
-    statussen: statussen
+    statussen: statussen,
+    taak_statussen: taakStatussen,
+    taak_prioriteiten: taakPrioriteiten,
+    taak_teller: taakTeller
   }).eq('user_id', huidigGebruiker.id);
   if (result.error) { toonNotificatie('Fout bij opslaan: ' + result.error.message, true); return false; }
   return true;
@@ -765,6 +798,246 @@ async function slaNummeringOp() {
 async function slaStatussenOp() {
   await slaInstellingenOp();
   renderFilterBar(); renderTickets(); toonNotificatie('✓ Statussen opgeslagen');
+}
+
+// ===== TAAK INSTELLINGEN =====
+
+function renderTaakStatusList() {
+  var el = document.getElementById('taakStatusList');
+  if (!el) return;
+  el.innerHTML = taakStatussen.map(function(s,i) {
+    return '<div class="status-item"><span class="drag-handle">⠿</span><input type="text" value="'+s+'" onchange="taakStatussen['+i+']=this.value"><button class="del-btn" onclick="verwijderTaakStatus('+i+')">✕</button></div>';
+  }).join('');
+}
+
+function renderTaakPrioList() {
+  var el = document.getElementById('taakPrioList');
+  if (!el) return;
+  el.innerHTML = taakPrioriteiten.map(function(p,i) {
+    return '<div class="status-item"><span class="drag-handle">⠿</span><input type="text" value="'+p+'" onchange="taakPrioriteiten['+i+']=this.value"><button class="del-btn" onclick="verwijderTaakPrio('+i+')">✕</button></div>';
+  }).join('');
+}
+
+async function voegTaakStatusToe() {
+  var input = document.getElementById('nieuweTaakStatus');
+  var val = input.value.trim(); if (!val) return;
+  taakStatussen.push(val); input.value=''; renderTaakStatusList();
+  var ok = await slaInstellingenOp();
+  if (ok !== false) toonNotificatie('✓ Taakstatus "'+val+'" opgeslagen');
+}
+
+async function verwijderTaakStatus(i) {
+  if (taakStatussen.length<=1){toonNotificatie('Minimaal één status vereist',true);return;}
+  taakStatussen.splice(i,1); renderTaakStatusList();
+  var ok = await slaInstellingenOp();
+  if (ok !== false) toonNotificatie('✓ Taakstatus verwijderd');
+}
+
+async function voegTaakPrioToe() {
+  var input = document.getElementById('nieuweTaakPrio');
+  var val = input.value.trim(); if (!val) return;
+  taakPrioriteiten.push(val); input.value=''; renderTaakPrioList();
+  var ok = await slaInstellingenOp();
+  if (ok !== false) toonNotificatie('✓ Prioriteit "'+val+'" opgeslagen');
+}
+
+async function verwijderTaakPrio(i) {
+  if (taakPrioriteiten.length<=1){toonNotificatie('Minimaal één prioriteit vereist',true);return;}
+  taakPrioriteiten.splice(i,1); renderTaakPrioList();
+  var ok = await slaInstellingenOp();
+  if (ok !== false) toonNotificatie('✓ Prioriteit verwijderd');
+}
+
+function volgendTaakNummer() {
+  taakTeller++;
+  return 'TSK-' + String(taakTeller).padStart(4,'0');
+}
+
+// ===== TAKEN FLOATING WINDOWS =====
+
+async function laadTakenVoorTicket(ticketId, containerEl) {
+  containerEl.innerHTML = '<div style="color:var(--muted);font-size:12px;padding:8px 0;">Taken laden...</div>';
+  var result = await sb.from('taken').select('*').eq('ticket_id', ticketId).order('aangemaakt_iso', {ascending:true});
+  if (result.error) { containerEl.innerHTML = '<div style="color:var(--danger);font-size:12px;">Fout bij laden taken</div>'; return; }
+  var taken = result.data || [];
+  if (!taken.length) {
+    containerEl.innerHTML = '<div style="color:var(--muted);font-size:12px;font-style:italic;padding:8px 0;">Nog geen taken op dit ticket.</div>';
+    return;
+  }
+  containerEl.innerHTML = taken.map(function(t) {
+    var prioKleur = {Laag:'#6b7080',Normaal:'#4fffb0',Hoog:'#ffd32a',Urgent:'#ff4757'}[t.prioriteit] || '#6b7080';
+    return '<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;background:var(--bg);border:1px solid var(--border);border-radius:6px;margin-bottom:6px;cursor:pointer;" onclick="openBewerkTaak(&quot;'+t.id+'&quot;,&quot;'+ticketId+'&quot;)">' +
+      '<div style="display:flex;flex-direction:column;gap:2px;min-width:0;">' +
+        '<span style="font-size:12px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">🔧 <strong>'+t.id+'</strong> '+t.omschrijving+'</span>' +
+        '<span style="font-size:11px;color:var(--muted);">'+t.status+' · '+(t.eigenaar_naam||t.eigenaar_email||'Geen eigenaar')+'</span>' +
+      '</div>' +
+      '<span style="font-size:10px;padding:2px 7px;border-radius:4px;border:1px solid '+prioKleur+';color:'+prioKleur+';white-space:nowrap;margin-left:8px;">'+t.prioriteit+'</span>' +
+    '</div>';
+  }).join('');
+}
+
+function maakTaakFloatingWindow(winKey, titel) {
+  var winId = 'fw-taak-' + winKey;
+  var offset = Object.keys(openWindows).length * 25;
+  var win = document.createElement('div');
+  win.id = winId;
+  win.style.cssText = 'position:fixed;top:'+(120+offset)+'px;left:'+(280+offset)+'px;width:480px;min-width:360px;min-height:380px;background:#16181f;border:1px solid #2a2d38;border-radius:12px;box-shadow:0 20px 60px rgba(0,0,0,0.6);z-index:'+(++floatingWindowZIndex)+';display:flex;flex-direction:column;overflow:hidden;resize:both;';
+  var statusOpties = taakStatussen.map(function(s){ return '<option value="'+s+'">'+s+'</option>'; }).join('');
+  var prioOpties = taakPrioriteiten.map(function(p){ return '<option value="'+p+'">'+p+'</option>'; }).join('');
+  var eigenaarOpties = '<option value="">— Geen eigenaar —</option>' + gebruikersCache.map(function(u){
+    var naam = [u.voornaam, u.tussenvoegsel, u.achternaam].filter(Boolean).join(' ') || u.user_email;
+    return '<option value="'+u.user_id+'" data-naam="'+naam+'" data-email="'+(u.user_email||'')+'">'+naam+'</option>';
+  }).join('');
+  var titlebarHtml = '<div class="fw-titlebar" style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:#1e2028;border-bottom:1px solid #2a2d38;cursor:move;user-select:none;flex-shrink:0;"><div style="display:flex;align-items:center;gap:10px;"><span style="font-family:Syne,sans-serif;font-weight:700;font-size:13px;color:#ffd32a;">🔧 ' + titel + '</span></div><div style="display:flex;gap:6px;"><button onclick="toggleMinimizeTaak(&quot;'+winId+'&quot;)" style="width:14px;height:14px;border-radius:50%;background:#ffd32a;border:none;cursor:pointer;" title="Minimaliseren"></button><button onclick="toggleMaximize(&quot;'+winId+'&quot;)" style="width:14px;height:14px;border-radius:50%;background:#4fffb0;border:none;cursor:pointer;" title="Maximaliseren"></button><button onclick="sluitTaakWindow(&quot;'+winKey+'&quot;)" style="width:14px;height:14px;border-radius:50%;background:#ff4757;border:none;cursor:pointer;" title="Sluiten"></button></div></div>';
+  win.innerHTML = titlebarHtml +
+    '<div style="flex:1;overflow-y:auto;padding:20px;" id="fw-taak-body-'+winKey+'">' +
+      '<div id="tw-taak-ref-'+winKey+'" style="font-size:12px;color:#ffd32a;background:rgba(255,211,42,0.06);border:1px solid rgba(255,211,42,0.2);border-radius:6px;padding:8px 12px;margin-bottom:16px;"></div>' +
+      '<div class="field"><label>Omschrijving</label><input type="text" id="tw-taak-omschrijving-'+winKey+'" placeholder="Omschrijving van de taak" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);font-size:13px;padding:10px 14px;border-radius:8px;outline:none;box-sizing:border-box;"></div>' +
+      '<div style="display:flex;gap:12px;">' +
+        '<div class="field" style="flex:1"><label>Status</label><select class="styled-select" id="tw-taak-status-'+winKey+'" style="width:100%;">'+statusOpties+'</select></div>' +
+        '<div class="field" style="flex:1"><label>Prioriteit</label><select class="styled-select" id="tw-taak-prio-'+winKey+'" style="width:100%;">'+prioOpties+'</select></div>' +
+      '</div>' +
+      '<div class="field"><label>Eigenaar</label><select class="styled-select" id="tw-taak-eigenaar-'+winKey+'" style="width:100%;">'+eigenaarOpties+'</select></div>' +
+      '<div class="field"><label>Opmerking</label><textarea id="tw-taak-opmerking-'+winKey+'" placeholder="Opmerkingen over deze taak..." style="width:100%;min-height:80px;background:var(--bg);border:1px solid var(--border);color:var(--text);font-size:13px;padding:10px 14px;border-radius:8px;resize:vertical;box-sizing:border-box;outline:none;"></textarea></div>' +
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;">' +
+        '<div id="tw-taak-verwijder-'+winKey+'"></div>' +
+        '<div style="display:flex;gap:10px;">' +
+          '<button class="btn btn-secondary" onclick="sluitTaakWindow(&quot;'+winKey+'&quot;)">Annuleren</button>' +
+          '<button class="btn btn-primary" onclick="slaTaakWindowOp(&quot;'+winKey+'&quot;)">✓ Opslaan</button>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+  document.getElementById('floatingWindows').appendChild(win);
+  makeDraggable(win, win.querySelector('.fw-titlebar'));
+  win.addEventListener('mousedown', function(){ bringToFront(win); });
+  openWindows['taak-' + winKey] = true;
+  return win;
+}
+
+async function openNieuweTaak(ticketId, ticketTitel) {
+  var winKey = 'nieuw-' + ticketId + '-' + Date.now();
+  taakWindowState[winKey] = { bewerkTaakId: null, ticketId: ticketId };
+  var win = maakTaakFloatingWindow(winKey, 'Nieuwe taak');
+  var refEl = document.getElementById('tw-taak-ref-' + winKey);
+  if (refEl) refEl.textContent = '🎫 ' + ticketId + (ticketTitel ? ' — ' + ticketTitel : '');
+}
+
+async function openBewerkTaak(taakId, ticketId) {
+  var bestaand = document.getElementById('fw-taak-' + taakId);
+  if (bestaand) { bestaand.style.display='flex'; bringToFront(bestaand); return; }
+  var result = await sb.from('taken').select('*').eq('id', taakId).single();
+  if (result.error || !result.data) return;
+  var t = result.data;
+  taakWindowState[taakId] = { bewerkTaakId: taakId, ticketId: ticketId };
+  var win = maakTaakFloatingWindow(taakId, 'Taak ' + taakId);
+  var refEl = document.getElementById('tw-taak-ref-' + taakId);
+  if (refEl) refEl.textContent = '🎫 ' + ticketId;
+  var omschrEl = document.getElementById('tw-taak-omschrijving-' + taakId);
+  if (omschrEl) omschrEl.value = t.omschrijving||'';
+  var statusEl = document.getElementById('tw-taak-status-' + taakId);
+  if (statusEl) statusEl.value = t.status||taakStatussen[0];
+  var prioEl = document.getElementById('tw-taak-prio-' + taakId);
+  if (prioEl) prioEl.value = t.prioriteit||taakPrioriteiten[0];
+  var eigenaarEl = document.getElementById('tw-taak-eigenaar-' + taakId);
+  if (eigenaarEl) eigenaarEl.value = t.eigenaar_id||'';
+  var opmEl = document.getElementById('tw-taak-opmerking-' + taakId);
+  if (opmEl) opmEl.value = t.opmerking||'';
+  // Verwijder knop
+  var verwijderEl = document.getElementById('tw-taak-verwijder-' + taakId);
+  if (verwijderEl) verwijderEl.innerHTML = '<button class="btn btn-danger btn-sm" onclick="verwijderTaak(&quot;'+taakId+'&quot;,&quot;'+ticketId+'&quot;)">🗑 Verwijderen</button>';
+}
+
+async function slaTaakWindowOp(winKey) {
+  var state = taakWindowState[winKey] || {};
+  var omschrijving = document.getElementById('tw-taak-omschrijving-'+winKey).value.trim();
+  var status = document.getElementById('tw-taak-status-'+winKey).value;
+  var prio = document.getElementById('tw-taak-prio-'+winKey).value;
+  var eigenaarSelect = document.getElementById('tw-taak-eigenaar-'+winKey);
+  var eigenaarId = eigenaarSelect.value;
+  var eigenaarOption = eigenaarSelect.options[eigenaarSelect.selectedIndex];
+  var eigenaarNaam = eigenaarOption ? eigenaarOption.dataset.naam : '';
+  var eigenaarEmail = eigenaarOption ? eigenaarOption.dataset.email : '';
+  var opmerking = document.getElementById('tw-taak-opmerking-'+winKey).value.trim();
+  if (!omschrijving) { toonNotificatie('Vul een omschrijving in', true); return; }
+  if (state.bewerkTaakId) {
+    var result = await sb.from('taken').update({
+      omschrijving: omschrijving, status: status, prioriteit: prio,
+      eigenaar_id: eigenaarId||null, eigenaar_naam: eigenaarNaam, eigenaar_email: eigenaarEmail,
+      opmerking: opmerking, gewijzigd: new Date().toISOString()
+    }).eq('id', state.bewerkTaakId);
+    if (result.error) { toonNotificatie('Fout: ' + result.error.message, true); return; }
+    toonNotificatie('✓ Taak bijgewerkt');
+  } else {
+    taakTeller++;
+    var nieuwId = 'TSK-' + String(taakTeller).padStart(4,'0');
+    var result = await sb.from('taken').insert({
+      id: nieuwId, ticket_id: state.ticketId,
+      omschrijving: omschrijving, status: status, prioriteit: prio,
+      eigenaar_id: eigenaarId||null, eigenaar_naam: eigenaarNaam, eigenaar_email: eigenaarEmail,
+      opmerking: opmerking, aangemaakt_iso: new Date().toISOString(),
+      user_id: huidigGebruiker.id, user_email: huidigGebruiker.email
+    });
+    if (result.error) { toonNotificatie('Fout: ' + result.error.message, true); taakTeller--; return; }
+    await slaInstellingenOp();
+    toonNotificatie('✓ Taak aangemaakt');
+  }
+  sluitTaakWindow(winKey);
+  // Ververs takenlijst in ticket window
+  var takenContainer = document.getElementById('tw-taken-' + state.ticketId);
+  if (takenContainer) await laadTakenVoorTicket(state.ticketId, takenContainer);
+}
+
+async function verwijderTaak(taakId, ticketId) {
+  if (!confirm('Weet je zeker dat je taak '+taakId+' wilt verwijderen?')) return;
+  await sb.from('taken').delete().eq('id', taakId);
+  sluitTaakWindow(taakId);
+  toonNotificatie('🗑 Taak verwijderd');
+  var takenContainer = document.getElementById('tw-taken-' + ticketId);
+  if (takenContainer) await laadTakenVoorTicket(ticketId, takenContainer);
+}
+
+function sluitTaakWindow(winKey) {
+  var winId = 'fw-taak-' + winKey;
+  var win = document.getElementById(winId);
+  if (win) win.remove();
+  var btn = document.getElementById('tb-' + winId);
+  if (btn) btn.remove();
+  var taskbar = document.getElementById('fw-taskbar');
+  if (taskbar && !taskbar.children.length) taskbar.style.display = 'none';
+  delete openWindows['taak-' + winKey];
+  delete taakWindowState[winKey];
+}
+
+function toggleMinimizeTaak(winId) {
+  var win = document.getElementById(winId);
+  var winKey = winId.replace('fw-taak-', '');
+  var taskbar = document.getElementById('fw-taskbar');
+  if (win._minimized) {
+    win.style.display = 'flex';
+    win.style.top = win._prevTop || '120px';
+    win.style.left = win._prevLeft || '280px';
+    win.style.width = win._prevWidth || '480px';
+    win.style.minHeight = '380px';
+    win.style.resize = 'both';
+    win._minimized = false;
+    var btn = document.getElementById('tb-' + winId);
+    if (btn) btn.remove();
+    if (!taskbar.children.length) taskbar.style.display = 'none';
+  } else {
+    win._prevTop = win.style.top; win._prevLeft = win.style.left;
+    win._prevWidth = win.style.width; win._prevHeight = win.style.height;
+    win.style.display = 'none';
+    win._minimized = true;
+    taskbar.style.display = 'flex';
+    var state = taakWindowState[winKey] || {};
+    var label = '🔧 ' + (state.bewerkTaakId || 'Nieuwe taak');
+    var btn = document.createElement('button');
+    btn.className = 'fw-taskbar-btn';
+    btn.id = 'tb-' + winId;
+    btn.innerHTML = label;
+    btn.onclick = function(){ toggleMinimizeTaak(winId); };
+    taskbar.appendChild(btn);
+  }
 }
 
 // ===== TICKETS =====
@@ -1224,6 +1497,9 @@ async function openBewerkTicket(id) {
       }
     } catch(e) {}
   }
+  // Laad taken
+  var takenContainer = document.getElementById('tw-taken-' + id);
+  if (takenContainer) await laadTakenVoorTicket(id, takenContainer);
 }
 
 function sluitModal(e){if(e.target.id==='modalOverlay')sluitModalDirect();}
@@ -1259,7 +1535,14 @@ function maakTicketFloatingWindow(winKey, titel) {
         '<div class="field" style="flex:1"><label>Ticket owner</label><select class="styled-select" id="tw-owner-'+winKey+'" style="width:100%;">'+ownerOpties+'</select></div>' +
       '</div>' +
       '<div class="field"><label>Opmerking / Todo</label><textarea id="tw-note-'+winKey+'" placeholder="Schrijf hier je opmerking of todo..." style="width:100%;min-height:90px;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:var(--font-mono,monospace);font-size:13px;padding:10px 14px;border-radius:8px;resize:vertical;box-sizing:border-box;outline:none;"></textarea></div>' +
-      '<div style="display:flex;justify-content:flex-end;gap:10px;margin-top:8px;">' +
+      '<div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border);">' +
+        '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">' +
+          '<span style="font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;">🔧 Taken</span>' +
+          '<button class="btn btn-secondary btn-sm" onclick="openNieuweTaak(&quot;'+winKey+'&quot;,&quot;&quot;)">+ Taak toevoegen</button>' +
+        '</div>' +
+        '<div id="tw-taken-'+winKey+'"><div style="color:var(--muted);font-size:12px;font-style:italic;">Sla het ticket eerst op om taken toe te voegen.</div></div>' +
+      '</div>' +
+      '<div style="display:flex;justify-content:flex-end;gap:10px;margin-top:16px;">' +
         '<button class="btn btn-secondary" onclick="sluitTicketWindow(&quot;'+winKey+'&quot;)">Annuleren</button>' +
         '<button class="btn btn-primary" onclick="slaTicketWindowOp(&quot;'+winKey+'&quot;)">✓ Opslaan</button>' +
       '</div>' +
