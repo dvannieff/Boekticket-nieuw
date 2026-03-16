@@ -415,7 +415,7 @@ var statussen = ['Open','In behandeling','Afgerond'];
 var ticketTeller = 0;
 var mutaties = [];
 var huidigeMutatie = null, huidigPrio = 'laag', bewerkTicketId = null, ticketFilter = 'alle';
-var sorteerKolom = 'id', sorteerRichting = 'asc';
+var sorteerKolom = 'id', sorteerRichting = 'desc', sorteerInitieel = true;
 var huidigGebruiker = null;
 var isAdmin = false;
 var beziggModeUitloggen = false;
@@ -885,6 +885,7 @@ async function laadMutaties() {
     });
     window.ledgerMap = data.ledgerMap || {};
     updateStatus(true, 'Verbonden');
+    mutaties.sort(function(a,b){ return (parseInt(b.id)||0)-(parseInt(a.id)||0); });
     renderMutaties();
     toonNotificatie(mutaties.length + ' mutaties geladen');
     showTab('mutaties', document.querySelector('.tab'));
