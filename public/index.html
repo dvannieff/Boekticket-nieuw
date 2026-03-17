@@ -935,6 +935,7 @@ function maakTaakFloatingWindow(winKey, titel) {
           '<span style="font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;">⏱ Tijdregistratie</span>' +
           '<div style="display:flex;align-items:center;gap:10px;">' +
             '<span id="tw-tijdreg-totaal-'+winKey+'" style="font-size:12px;color:#4fffb0;font-weight:600;"></span>' +
+            '<span id="tw-tijdreg-resterend-'+winKey+'" style="font-size:12px;font-weight:600;"></span>' +
             '<button class="btn btn-secondary btn-sm" onclick="openNieuweTijdreg(&quot;'+winKey+'&quot;)">+ Tijd boeken</button>' +
           '</div>' +
         '</div>' +
@@ -1093,9 +1094,30 @@ async function laadTijdregistraties(taakId) {
   if (!lijstEl) return;
   var result = await sb.from('tijdregistraties').select('*').eq('taak_id', taakId).order('aangemaakt_iso', {ascending:true});
   var regs = result.data || [];
-  if (totaalEl) {
+  var resterendEl = document.getElementById('tw-tijdreg-resterend-' + taakId);
+  if (totaalEl || resterendEl) {
     var totaal = regs.reduce(function(s,r){ return s + (r.bestede_tijd||0); }, 0);
-    totaalEl.textContent = totaal ? 'Totaal: ' + minToTijd(totaal) : '';
+    if (totaalEl) totaalEl.textContent = totaal ? 'Totaal: ' + minToTijd(totaal) : '';
+    // Bereken resterende tijd op basis van geschatte tijd in de taak
+    if (resterendEl) {
+      var taakResult = await sb.from('taken').select('geschatte_tijd').eq('id', taakId).single();
+      var geschat = taakResult.data ? (taakResult.data.geschatte_tijd || 0) : 0;
+      if (geschat > 0) {
+        var resterend = geschat - totaal;
+        if (resterend > 0) {
+          resterendEl.textContent = '· Resterend: ' + minToTijd(resterend);
+          resterendEl.style.color = '#4fffb0';
+        } else if (resterend < 0) {
+          resterendEl.textContent = '· Overschreden: ' + minToTijd(Math.abs(resterend));
+          resterendEl.style.color = '#ff4757';
+        } else {
+          resterendEl.textContent = '· Precies op tijd';
+          resterendEl.style.color = '#ffd32a';
+        }
+      } else {
+        resterendEl.textContent = '';
+      }
+    }
   }
   if (!regs.length) { lijstEl.innerHTML = '<div style="color:var(--muted);font-size:12px;font-style:italic;">Nog geen tijd geboekt.</div>'; return; }
   lijstEl.innerHTML = regs.map(function(r) {
