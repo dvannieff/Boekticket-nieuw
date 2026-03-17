@@ -1737,9 +1737,11 @@ async function openBewerkTicket(id) {
       }
     } catch(e) {}
   }
-  // Laad taken
+  // Laad taken en toon knop
   var takenContainer = document.getElementById('tw-taken-' + id);
   if (takenContainer) await laadTakenVoorTicket(id, takenContainer);
+  var taakBtn = document.getElementById('tw-taak-btn-' + id);
+  if (taakBtn) taakBtn.style.display = 'inline-flex';
 }
 
 function sluitModal(e){if(e.target.id==='modalOverlay')sluitModalDirect();}
@@ -1778,7 +1780,7 @@ function maakTicketFloatingWindow(winKey, titel) {
       '<div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border);">' +
         '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">' +
           '<span style="font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;">🔧 Taken</span>' +
-          '<button class="btn btn-secondary btn-sm" onclick="openNieuweTaak(&quot;'+winKey+'&quot;,&quot;&quot;)">+ Taak toevoegen</button>' +
+          '<button class="btn btn-secondary btn-sm" id="tw-taak-btn-'+winKey+'" style="display:none;" onclick="openNieuweTaak(ticketWindowState[&quot;'+winKey+'&quot;]&&ticketWindowState[&quot;'+winKey+'&quot;].bewerkTicketId,&quot;&quot;)">+ Taak toevoegen</button>' +
         '</div>' +
         '<div id="tw-taken-'+winKey+'"><div style="color:var(--muted);font-size:12px;font-style:italic;">Sla het ticket eerst op om taken toe te voegen.</div></div>' +
       '</div>' +
@@ -1884,6 +1886,15 @@ async function slaTicketWindowOp(winKey) {
     if (result.error) { toonNotificatie('Fout bij opslaan: ' + result.error.message, true); return; }
     await slaInstellingenOp();
     toonNotificatie('✓ Ticket aangemaakt');
+    // Update state zodat taken kunnen worden toegevoegd
+    ticketWindowState[winKey].bewerkTicketId = nieuwId;
+    // Toon taak knop en update taken container
+    var taakBtn = document.getElementById('tw-taak-btn-' + winKey);
+    if (taakBtn) taakBtn.style.display = 'inline-flex';
+    var takenDiv = document.getElementById('tw-taken-' + winKey);
+    if (takenDiv) takenDiv.innerHTML = '<div style="color:var(--muted);font-size:12px;font-style:italic;">Nog geen taken op dit ticket.</div>';
+    await laadTickets();
+    return;
   }
   sluitTicketWindow(winKey);
   await laadTickets();
