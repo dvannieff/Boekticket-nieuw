@@ -189,6 +189,7 @@
   <div class="tabs">
     <button class="tab active" onclick="showTab('mutaties',this)">📊 Mutaties</button>
     <button class="tab" onclick="showTab('tickets',this)">🎫 Tickets</button>
+    <button class="tab" onclick="showTab('taken',this);laadTakenOverzicht()">🔧 Taken</button>
     <button class="tab" id="instellingenTab" style="display:none;" onclick="showTab('instellingen',this)">⚙️ Instellingen</button>
     <button class="tab" id="auditTab" style="display:none;" onclick="showTab('audit',this);laadAuditLog()">🔍 Audit log</button>
   </div>
@@ -228,6 +229,25 @@
       <button class="btn btn-primary" onclick="openNieuwTicketVanafLijst()">+ Nieuw ticket</button>
     </div>
     <div class="tickets-grid" id="ticketsGrid"></div>
+  </div>
+
+  <!-- TAKEN -->
+  <div class="panel" id="panel-taken">
+    <div class="toolbar">
+      <div class="toolbar-left">
+        <input class="search-box" id="takenZoekBox" type="text" placeholder="Zoek taak..." oninput="filterTakenOverzicht()" style="width:200px;">
+        <span class="badge" id="takenCountBadge">0 taken</span>
+        <select id="takenStatusFilter" class="search-box" style="width:150px;" onchange="filterTakenOverzicht()">
+          <option value="">Alle statussen</option>
+        </select>
+      </div>
+      <button class="btn btn-primary" onclick="openNieuweTaakVanafLijst()">+ Nieuwe taak</button>
+    </div>
+    <div class="table-wrap mutaties-wrap" style="max-height:calc(100vh - 260px);">
+      <div id="takenOverzichtContent">
+        <div class="empty-state"><div class="icon">🔧</div><p>Geen taken gevonden.</p></div>
+      </div>
+    </div>
   </div>
 
   <!-- AUDIT LOG -->
@@ -444,6 +464,7 @@ var sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 var instellingen = {};
 var tickets = [];
+var takenCache = [];
 var statussen = ['Open','In behandeling','Afgerond'];
 var ticketTeller = 0;
 var taakStatussen = ['Open','In uitvoering','Gereed'];
@@ -587,6 +608,12 @@ async function initialiseerApp(user) {
   if (taakStartEl) taakStartEl.value = taakTeller + 1;
   renderTaakStatusList();
   renderTaakPrioList();
+  // Vul taak status filter
+  var taakStatusFilter = document.getElementById('takenStatusFilter');
+  if (taakStatusFilter) {
+    taakStatusFilter.innerHTML = '<option value="">Alle statussen</option>' +
+      taakStatussen.map(function(s){ return '<option value="'+s+'">'+s+'</option>'; }).join('');
+  }
 
   renderStatusList();
   renderFilterBar();
@@ -1289,6 +1316,115 @@ function sluitTijdregWindow(winId) {
   var win = document.getElementById(winId);
   if (win) win.remove();
   delete openWindows['tijdreg-' + winId];
+}
+
+// ===== TAKEN OVERZICHT =====
+
+async function laadTakenOverzicht() {
+  var content = document.getElementById('takenOverzichtContent');
+  content.innerHTML = '<div class="loading"><div class="spinner"></div>Taken laden...</div>';
+  var result = await sb.from('taken').select('*').order('aangemaakt_iso', {ascending: false});
+  if (result.error) { content.innerHTML = '<div class="empty-state"><div class="icon">⚠️</div><p>Fout bij laden taken</p></div>'; return; }
+  takenCache = result.data || [];
+  document.getElementById('takenCountBadge').textContent = takenCache.length + ' taken';
+  renderTakenOverzicht(takenCache);
+}
+
+function renderTakenOverzicht(taken) {
+  var content = document.getElementById('takenOverzichtContent');
+  if (!taken.length) {
+    content.innerHTML = '<div class="empty-state"><div class="icon">🔧</div><p>Geen taken gevonden.</p></div>';
+    return;
+  }
+  var rows = taken.map(function(t) {
+    var prioKleur = {Laag:'#6b7080', Normaal:'#4fffb0', Hoog:'#ffd32a', Urgent:'#ff4757'}[t.prioriteit] || '#6b7080';
+    var deadlineHtml = '';
+    if (t.deadline) {
+      var dl = new Date(t.deadline);
+      var nu = new Date();
+      var verlopen = dl < nu && t.status !== taakStatussen[taakStatussen.length-1];
+      deadlineHtml = '<span style="font-size:11px;color:'+(verlopen?'var(--danger)':'var(--muted)')+';">📅 '+dl.toLocaleDateString('nl-NL')+'</span>';
+    }
+    var ticket = tickets.find(function(tk){ return tk.id === t.ticket_id; });
+    var ticketLabel = ticket ? '🎫 ' + ticket.id : (t.ticket_id || '—');
+    return '<tr style="cursor:pointer;" onclick="openBewerkTaak(&quot;'+t.id+'&quot;,&quot;'+t.ticket_id+'&quot;)">'+
+      '<td><span style="font-family:var(--font-mono,monospace);font-size:11px;color:var(--accent);">'+t.id+'</span></td>'+
+      '<td style="font-size:12px;">'+t.omschrijving+'</td>'+
+      '<td style="font-size:11px;color:var(--muted);">'+ticketLabel+'</td>'+
+      '<td><span style="font-size:11px;padding:2px 8px;border-radius:4px;border:1px solid var(--border);color:var(--muted);">'+t.status+'</span></td>'+
+      '<td><span style="font-size:11px;padding:2px 8px;border-radius:4px;border:1px solid '+prioKleur+';color:'+prioKleur+';">'+t.prioriteit+'</span></td>'+
+      '<td style="font-size:12px;color:var(--muted);">'+(t.eigenaar_naam||t.eigenaar_email||'—')+'</td>'+
+      '<td>'+deadlineHtml+'</td>'+
+    '</tr>';
+  }).join('');
+  content.innerHTML = '<table><thead><tr>'+
+    '<th>ID</th><th>Omschrijving</th><th>Ticket</th><th>Status</th><th>Prioriteit</th><th>Eigenaar</th><th>Deadline</th>'+
+    '</tr></thead><tbody>'+rows+'</tbody></table>';
+}
+
+function filterTakenOverzicht() {
+  var q = document.getElementById('takenZoekBox').value.toLowerCase().trim();
+  var status = document.getElementById('takenStatusFilter').value;
+  var gefilterd = takenCache.filter(function(t) {
+    var matchQ = !q || t.omschrijving.toLowerCase().includes(q) || t.id.toLowerCase().includes(q) || (t.ticket_id||'').toLowerCase().includes(q);
+    var matchS = !status || t.status === status;
+    return matchQ && matchS;
+  });
+  document.getElementById('takenCountBadge').textContent = gefilterd.length + ' taken';
+  renderTakenOverzicht(gefilterd);
+}
+
+async function openNieuweTaakVanafLijst() {
+  // Ticket zoeker modal voor nieuwe taak
+  var winKey = 'vanaflijst-' + Date.now();
+  taakWindowState[winKey] = { bewerkTaakId: null, ticketId: null };
+  var win = maakTaakFloatingWindow(winKey, 'Nieuwe taak');
+  // Voeg ticket zoeker toe bovenaan
+  var bodyEl = document.getElementById('fw-taak-body-' + winKey);
+  if (bodyEl) {
+    var zoekHtml = '<div style="margin-bottom:16px;padding-bottom:14px;border-bottom:1px solid var(--border);">'+
+      '<label style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:8px;">Koppel aan ticket</label>'+
+      '<input type="text" id="taak-ticket-zoek-'+winKey+'" placeholder="Zoek ticket op ID of onderwerp..." oninput="filterTicketZoeker(&quot;'+winKey+'&quot;)" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);font-size:13px;padding:10px 14px;border-radius:8px;outline:none;box-sizing:border-box;">'+
+      '<div id="taak-ticket-resultaten-'+winKey+'" style="max-height:150px;overflow-y:auto;background:var(--bg);border:1px solid var(--border);border-radius:8px;margin-top:4px;display:none;"></div>'+
+      '<div id="taak-ticket-gekozen-'+winKey+'" style="display:none;margin-top:6px;padding:8px 12px;background:rgba(79,255,176,0.08);border:1px solid rgba(79,255,176,0.3);border-radius:8px;font-size:12px;color:var(--accent);"></div>'+
+    '</div>';
+    bodyEl.insertAdjacentHTML('afterbegin', zoekHtml);
+  }
+  // Standaard eigenaar
+  var eigenaarEl = document.getElementById('tw-taak-eigenaar-' + winKey);
+  if (eigenaarEl && huidigGebruiker) eigenaarEl.value = huidigGebruiker.id;
+}
+
+function filterTicketZoeker(winKey) {
+  var q = document.getElementById('taak-ticket-zoek-' + winKey).value.toLowerCase().trim();
+  var resultatenDiv = document.getElementById('taak-ticket-resultaten-' + winKey);
+  if (!q) { resultatenDiv.style.display = 'none'; return; }
+  var resultaten = tickets.filter(function(t) {
+    return t.id.toLowerCase().includes(q) || (t.subject||'').toLowerCase().includes(q);
+  }).slice(0, 10);
+  if (!resultaten.length) {
+    resultatenDiv.innerHTML = '<div style="padding:10px 14px;color:var(--muted);font-size:12px;">Geen tickets gevonden</div>';
+    resultatenDiv.style.display = 'block';
+    return;
+  }
+  resultatenDiv.innerHTML = resultaten.map(function(t, i) {
+    var subj = t.subject.replace(/['"]/g,'');
+    return '<div style="padding:10px 14px;cursor:pointer;border-bottom:1px solid var(--border);font-size:12px;" onclick="kiesTicketVoorTaak(&quot;'+winKey+'&quot;,&quot;'+t.id+'&quot;,&quot;'+subj+'&quot;)">' +
+      '<strong>' + t.id + '</strong> — ' + t.subject + '<span style="color:var(--muted);margin-left:8px;">' + t.status + '</span>' +
+    '</div>';
+  }).join('');
+  resultatenDiv.style.display = 'block';
+}
+
+function kiesTicketVoorTaak(winKey, ticketId, ticketSubject) {
+  taakWindowState[winKey].ticketId = ticketId;
+  document.getElementById('taak-ticket-zoek-' + winKey).value = '';
+  document.getElementById('taak-ticket-resultaten-' + winKey).style.display = 'none';
+  var gekozenDiv = document.getElementById('taak-ticket-gekozen-' + winKey);
+  gekozenDiv.style.display = 'block';
+  gekozenDiv.innerHTML = '✓ ' + ticketId + ' — ' + ticketSubject;
+  var refEl = document.getElementById('tw-taak-ref-' + winKey);
+  if (refEl) refEl.textContent = '🎫 ' + ticketId + ' — ' + ticketSubject;
 }
 
 function toggleMinimizeTaak(winId) {
