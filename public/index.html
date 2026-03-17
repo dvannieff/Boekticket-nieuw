@@ -923,8 +923,24 @@ function maakTaakFloatingWindow(winKey, titel) {
         '<div class="field" style="flex:1"><label>Prioriteit</label><select class="styled-select" id="tw-taak-prio-'+winKey+'" style="width:100%;">'+prioOpties+'</select></div>' +
       '</div>' +
       '<div class="field"><label>Eigenaar</label><select class="styled-select" id="tw-taak-eigenaar-'+winKey+'" style="width:100%;">'+eigenaarOpties+'</select></div>' +
+      '<div style="display:flex;gap:12px;">' +
+        '<div class="field" style="flex:1"><label>Deadline</label><input type="date" id="tw-taak-deadline-'+winKey+'" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);font-size:13px;padding:10px 14px;border-radius:8px;outline:none;box-sizing:border-box;"></div>' +
+        '<div class="field" style="flex:1"><label>Geschatte tijd</label><div style="display:flex;gap:6px;align-items:center;"><input type="number" id="tw-taak-gest-uur-'+winKey+'" min="0" placeholder="0" style="width:60px;background:var(--bg);border:1px solid var(--border);color:var(--text);font-size:13px;padding:10px 8px;border-radius:8px;outline:none;text-align:center;"><span style="color:var(--muted);font-size:12px;">u</span><input type="number" id="tw-taak-gest-min-'+winKey+'" min="0" max="59" placeholder="0" style="width:60px;background:var(--bg);border:1px solid var(--border);color:var(--text);font-size:13px;padding:10px 8px;border-radius:8px;outline:none;text-align:center;"><span style="color:var(--muted);font-size:12px;">m</span></div></div>' +
+      '</div>' +
       '<div class="field"><label>Opmerking</label><textarea id="tw-taak-opmerking-'+winKey+'" placeholder="Opmerkingen over deze taak..." style="width:100%;min-height:80px;background:var(--bg);border:1px solid var(--border);color:var(--text);font-size:13px;padding:10px 14px;border-radius:8px;resize:vertical;box-sizing:border-box;outline:none;"></textarea></div>' +
-      '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;">' +
+      '<div id="tw-taak-aangemaakt-'+winKey+'" style="font-size:11px;color:var(--muted);margin-bottom:12px;display:none;">Aangemaakt op: <span id="tw-taak-aangemaakt-val-'+winKey+'"></span></div>' +
+      // Tijdregistratie sectie
+      '<div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border);" id="tw-tijdreg-sectie-'+winKey+'" style="display:none;">' +
+        '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">' +
+          '<span style="font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;">⏱ Tijdregistratie</span>' +
+          '<div style="display:flex;align-items:center;gap:10px;">' +
+            '<span id="tw-tijdreg-totaal-'+winKey+'" style="font-size:12px;color:#4fffb0;font-weight:600;"></span>' +
+            '<button class="btn btn-secondary btn-sm" onclick="openNieuweTijdreg(&quot;'+winKey+'&quot;)">+ Tijd boeken</button>' +
+          '</div>' +
+        '</div>' +
+        '<div id="tw-tijdreg-lijst-'+winKey+'"><div style="color:var(--muted);font-size:12px;font-style:italic;">Nog geen tijd geboekt.</div></div>' +
+      '</div>' +
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:16px;">' +
         '<div id="tw-taak-verwijder-'+winKey+'"></div>' +
         '<div style="display:flex;gap:10px;">' +
           '<button class="btn btn-secondary" onclick="sluitTaakWindow(&quot;'+winKey+'&quot;)">Annuleren</button>' +
@@ -970,9 +986,30 @@ async function openBewerkTaak(taakId, ticketId) {
   if (eigenaarEl) eigenaarEl.value = t.eigenaar_id||'';
   var opmEl = document.getElementById('tw-taak-opmerking-' + taakId);
   if (opmEl) opmEl.value = t.opmerking||'';
+  // Deadline
+  var deadlineEl = document.getElementById('tw-taak-deadline-' + taakId);
+  if (deadlineEl && t.deadline) deadlineEl.value = t.deadline.substring(0,10);
+  // Geschatte tijd
+  if (t.geschatte_tijd != null) {
+    var gestUur = Math.floor(t.geschatte_tijd / 60);
+    var gestMin = t.geschatte_tijd % 60;
+    var gestUurEl = document.getElementById('tw-taak-gest-uur-' + taakId);
+    var gestMinEl = document.getElementById('tw-taak-gest-min-' + taakId);
+    if (gestUurEl) gestUurEl.value = gestUur;
+    if (gestMinEl) gestMinEl.value = gestMin;
+  }
+  // Creatiedatum
+  var aangemEl = document.getElementById('tw-taak-aangemaakt-' + taakId);
+  var aangemVal = document.getElementById('tw-taak-aangemaakt-val-' + taakId);
+  if (aangemEl && t.aangemaakt_iso) { aangemEl.style.display = 'block'; aangemVal.textContent = new Date(t.aangemaakt_iso).toLocaleString('nl-NL'); }
+  // Tijdregistratie sectie tonen
+  var tijdregSectie = document.getElementById('tw-tijdreg-sectie-' + taakId);
+  if (tijdregSectie) tijdregSectie.style.display = 'block';
   // Verwijder knop
   var verwijderEl = document.getElementById('tw-taak-verwijder-' + taakId);
   if (verwijderEl) verwijderEl.innerHTML = '<button class="btn btn-danger btn-sm" onclick="verwijderTaak(&quot;'+taakId+'&quot;,&quot;'+ticketId+'&quot;)">🗑 Verwijderen</button>';
+  // Laad tijdregistraties
+  await laadTijdregistraties(taakId);
 }
 
 async function slaTaakWindowOp(winKey) {
@@ -987,11 +1024,17 @@ async function slaTaakWindowOp(winKey) {
   var eigenaarEmail = eigenaarOption ? eigenaarOption.dataset.email : '';
   var opmerking = document.getElementById('tw-taak-opmerking-'+winKey).value.trim();
   if (!omschrijving) { toonNotificatie('Vul een omschrijving in', true); return; }
+  var deadline = document.getElementById('tw-taak-deadline-'+winKey).value || null;
+  var gestUur = parseInt(document.getElementById('tw-taak-gest-uur-'+winKey).value) || 0;
+  var gestMin = parseInt(document.getElementById('tw-taak-gest-min-'+winKey).value) || 0;
+  var geschatTijd = (gestUur * 60 + gestMin) || null;
+  var afgerondOp = (status === taakStatussen[taakStatussen.length-1]) ? new Date().toISOString().substring(0,10) : null;
   if (state.bewerkTaakId) {
     var result = await sb.from('taken').update({
       omschrijving: omschrijving, status: status, prioriteit: prio,
       eigenaar_id: eigenaarId||null, eigenaar_naam: eigenaarNaam, eigenaar_email: eigenaarEmail,
-      opmerking: opmerking, gewijzigd: new Date().toISOString()
+      opmerking: opmerking, deadline: deadline, geschatte_tijd: geschatTijd,
+      afgerond_op: afgerondOp, gewijzigd: new Date().toISOString()
     }).eq('id', state.bewerkTaakId);
     if (result.error) { toonNotificatie('Fout: ' + result.error.message, true); return; }
     toonNotificatie('✓ Taak bijgewerkt');
@@ -1002,7 +1045,8 @@ async function slaTaakWindowOp(winKey) {
       id: nieuwId, ticket_id: state.ticketId,
       omschrijving: omschrijving, status: status, prioriteit: prio,
       eigenaar_id: eigenaarId||null, eigenaar_naam: eigenaarNaam, eigenaar_email: eigenaarEmail,
-      opmerking: opmerking, aangemaakt_iso: new Date().toISOString(),
+      opmerking: opmerking, deadline: deadline, geschatte_tijd: geschatTijd,
+      afgerond_op: afgerondOp, aangemaakt_iso: new Date().toISOString(),
       user_id: huidigGebruiker.id, user_email: huidigGebruiker.email
     });
     if (result.error) { toonNotificatie('Fout: ' + result.error.message, true); taakTeller--; return; }
@@ -1034,6 +1078,172 @@ function sluitTaakWindow(winKey) {
   if (taskbar && !taskbar.children.length) taskbar.style.display = 'none';
   delete openWindows['taak-' + winKey];
   delete taakWindowState[winKey];
+}
+
+// ===== TIJDREGISTRATIE =====
+
+function minToTijd(min) {
+  if (!min) return '0u 0m';
+  return Math.floor(min/60) + 'u ' + (min%60) + 'm';
+}
+
+async function laadTijdregistraties(taakId) {
+  var lijstEl = document.getElementById('tw-tijdreg-lijst-' + taakId);
+  var totaalEl = document.getElementById('tw-tijdreg-totaal-' + taakId);
+  if (!lijstEl) return;
+  var result = await sb.from('tijdregistraties').select('*').eq('taak_id', taakId).order('aangemaakt_iso', {ascending:true});
+  var regs = result.data || [];
+  if (totaalEl) {
+    var totaal = regs.reduce(function(s,r){ return s + (r.bestede_tijd||0); }, 0);
+    totaalEl.textContent = totaal ? 'Totaal: ' + minToTijd(totaal) : '';
+  }
+  if (!regs.length) { lijstEl.innerHTML = '<div style="color:var(--muted);font-size:12px;font-style:italic;">Nog geen tijd geboekt.</div>'; return; }
+  lijstEl.innerHTML = regs.map(function(r) {
+    var start = r.start_tijd ? new Date(r.start_tijd).toLocaleString('nl-NL',{dateStyle:'short',timeStyle:'short'}) : '—';
+    var eind = r.eind_tijd ? new Date(r.eind_tijd).toLocaleString('nl-NL',{dateStyle:'short',timeStyle:'short'}) : '—';
+    return '<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;background:var(--bg);border:1px solid var(--border);border-radius:6px;margin-bottom:5px;">' +
+      '<div style="font-size:12px;">' +
+        '<span style="color:var(--text);">⏱ ' + minToTijd(r.bestede_tijd) + '</span>' +
+        '<span style="color:var(--muted);margin-left:8px;">' + start + ' → ' + eind + '</span>' +
+        (r.opmerking ? '<span style="color:var(--muted);margin-left:8px;font-style:italic;">' + r.opmerking + '</span>' : '') +
+      '</div>' +
+      '<div style="display:flex;gap:6px;">' +
+        '<button class="btn btn-secondary btn-sm" onclick="openBewerkTijdreg(&quot;'+r.id+'&quot;,&quot;'+taakId+'&quot;)">✏️</button>' +
+        '<button class="btn btn-danger btn-sm" onclick="verwijderTijdreg(&quot;'+r.id+'&quot;,&quot;'+taakId+'&quot;)">✕</button>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+}
+
+function openNieuweTijdreg(taakId) {
+  var winId = 'fw-tijdreg-nieuw-' + taakId + '-' + Date.now();
+  maakTijdregWindow(winId, taakId, null);
+}
+
+async function openBewerkTijdreg(regId, taakId) {
+  var result = await sb.from('tijdregistraties').select('*').eq('id', regId).single();
+  if (result.error || !result.data) return;
+  maakTijdregWindow('fw-tijdreg-' + regId, taakId, result.data);
+}
+
+function maakTijdregWindow(winId, taakId, bestaandeReg) {
+  var bestaand = document.getElementById(winId);
+  if (bestaand) { bestaand.style.display='flex'; bringToFront(bestaand); return; }
+  var offset = Object.keys(openWindows).length * 20;
+  var win = document.createElement('div');
+  win.id = winId;
+  win.style.cssText = 'position:fixed;top:'+(140+offset)+'px;left:'+(320+offset)+'px;width:420px;min-width:320px;min-height:320px;background:#16181f;border:1px solid #2a2d38;border-radius:12px;box-shadow:0 20px 60px rgba(0,0,0,0.6);z-index:'+(++floatingWindowZIndex)+';display:flex;flex-direction:column;overflow:hidden;resize:both;';
+  var nu = new Date();
+  var nuStr = nu.toISOString().slice(0,16);
+  var startVal = bestaandeReg && bestaandeReg.start_tijd ? new Date(bestaandeReg.start_tijd).toISOString().slice(0,16) : nuStr;
+  var eindVal = bestaandeReg && bestaandeReg.eind_tijd ? new Date(bestaandeReg.eind_tijd).toISOString().slice(0,16) : '';
+  var bestUur = bestaandeReg ? Math.floor((bestaandeReg.bestede_tijd||0)/60) : 0;
+  var bestMin = bestaandeReg ? (bestaandeReg.bestede_tijd||0)%60 : 0;
+  var opm = bestaandeReg ? (bestaandeReg.opmerking||'') : '';
+  var titel = bestaandeReg ? 'Tijdregistratie bewerken' : 'Tijd boeken';
+  var titlebarHtml = '<div class="fw-titlebar" style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:#1e2028;border-bottom:1px solid #2a2d38;cursor:move;user-select:none;flex-shrink:0;"><span style="font-family:Syne,sans-serif;font-weight:700;font-size:13px;color:#4fffb0;">⏱ ' + titel + '</span><button onclick="sluitTijdregWindow(&quot;'+winId+'&quot;)" style="width:14px;height:14px;border-radius:50%;background:#ff4757;border:none;cursor:pointer;"></button></div>';
+  win.innerHTML = titlebarHtml +
+    '<div style="flex:1;overflow-y:auto;padding:20px;">' +
+      '<div style="display:flex;gap:12px;margin-bottom:4px;">' +
+        '<div class="field" style="flex:1"><label>Starttijd</label><input type="datetime-local" id="tr-start-'+winId+'" value="'+startVal+'" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);font-size:12px;padding:8px 10px;border-radius:8px;outline:none;box-sizing:border-box;" oninput="berekenTijdregTotaal(&quot;'+winId+'&quot;)"></div>' +
+        '<div class="field" style="flex:1"><label>Eindtijd</label><input type="datetime-local" id="tr-eind-'+winId+'" value="'+eindVal+'" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);font-size:12px;padding:8px 10px;border-radius:8px;outline:none;box-sizing:border-box;" oninput="berekenTijdregTotaal(&quot;'+winId+'&quot;)"></div>' +
+      '</div>' +
+      '<div class="field">' +
+        '<label>Bestede tijd <span style="color:var(--muted);font-size:10px;">(of vul handmatig in)</span></label>' +
+        '<div style="display:flex;gap:6px;align-items:center;">' +
+          '<input type="number" id="tr-uur-'+winId+'" min="0" value="'+bestUur+'" style="width:65px;background:var(--bg);border:1px solid var(--border);color:var(--text);font-size:13px;padding:8px;border-radius:8px;outline:none;text-align:center;" oninput="pasTijdAanOpInput(&quot;'+winId+'&quot;)">' +
+          '<span style="color:var(--muted);font-size:12px;">u</span>' +
+          '<input type="number" id="tr-min-'+winId+'" min="0" max="59" value="'+bestMin+'" style="width:65px;background:var(--bg);border:1px solid var(--border);color:var(--text);font-size:13px;padding:8px;border-radius:8px;outline:none;text-align:center;" oninput="pasTijdAanOpInput(&quot;'+winId+'&quot;)">' +
+          '<span style="color:var(--muted);font-size:12px;">m</span>' +
+          '<span id="tr-totaal-'+winId+'" style="color:#4fffb0;font-size:12px;margin-left:4px;"></span>' +
+        '</div>' +
+      '</div>' +
+      '<div class="field"><label>Opmerking</label><input type="text" id="tr-opm-'+winId+'" value="'+opm+'" placeholder="Optionele opmerking..." style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);font-size:13px;padding:8px 12px;border-radius:8px;outline:none;box-sizing:border-box;"></div>' +
+      '<div style="display:flex;justify-content:flex-end;gap:10px;margin-top:8px;">' +
+        '<button class="btn btn-secondary" onclick="sluitTijdregWindow(&quot;'+winId+'&quot;)">Annuleren</button>' +
+        '<button class="btn btn-primary" onclick="slaTijdregOp(&quot;'+winId+'&quot;,&quot;'+taakId+'&quot;,'+(bestaandeReg?'&quot;'+bestaandeReg.id+'&quot;':'null')+')">✓ Opslaan</button>' +
+      '</div>' +
+    '</div>';
+  document.getElementById('floatingWindows').appendChild(win);
+  makeDraggable(win, win.querySelector('.fw-titlebar'));
+  win.addEventListener('mousedown', function(){ bringToFront(win); });
+  openWindows['tijdreg-' + winId] = true;
+}
+
+function berekenTijdregTotaal(winId) {
+  var startEl = document.getElementById('tr-start-' + winId);
+  var eindEl = document.getElementById('tr-eind-' + winId);
+  var urenEl = document.getElementById('tr-uur-' + winId);
+  var minEl = document.getElementById('tr-min-' + winId);
+  var totaalEl = document.getElementById('tr-totaal-' + winId);
+  if (startEl.value && eindEl.value) {
+    var diff = (new Date(eindEl.value) - new Date(startEl.value)) / 60000;
+    if (diff > 0) {
+      urenEl.value = Math.floor(diff/60);
+      minEl.value = diff%60;
+      if (totaalEl) totaalEl.textContent = '= ' + minToTijd(diff);
+    }
+  }
+}
+
+function pasTijdAanOpInput(winId) {
+  var urenEl = document.getElementById('tr-uur-' + winId);
+  var minEl = document.getElementById('tr-min-' + winId);
+  var eindEl = document.getElementById('tr-eind-' + winId);
+  var startEl = document.getElementById('tr-start-' + winId);
+  var totaalEl = document.getElementById('tr-totaal-' + winId);
+  var uren = parseInt(urenEl.value)||0;
+  var min = parseInt(minEl.value)||0;
+  var totMin = uren*60+min;
+  if (totaalEl) totaalEl.textContent = totMin ? '= ' + minToTijd(totMin) : '';
+  // Pas eindtijd aan op basis van starttijd + handmatige invoer
+  if (startEl.value && totMin > 0) {
+    var nieuweEind = new Date(new Date(startEl.value).getTime() + totMin*60000);
+    eindEl.value = nieuweEind.toISOString().slice(0,16);
+  }
+}
+
+async function slaTijdregOp(winId, taakId, bestaandId) {
+  var start = document.getElementById('tr-start-'+winId).value;
+  var eind = document.getElementById('tr-eind-'+winId).value;
+  var uren = parseInt(document.getElementById('tr-uur-'+winId).value)||0;
+  var min = parseInt(document.getElementById('tr-min-'+winId).value)||0;
+  var besteedMin = uren*60+min;
+  var opm = document.getElementById('tr-opm-'+winId).value.trim();
+  if (!besteedMin) { toonNotificatie('Vul een tijd in', true); return; }
+  var data = {
+    taak_id: taakId,
+    start_tijd: start ? new Date(start).toISOString() : null,
+    eind_tijd: eind ? new Date(eind).toISOString() : null,
+    bestede_tijd: besteedMin,
+    opmerking: opm||null,
+    user_id: huidigGebruiker.id,
+    user_email: huidigGebruiker.email
+  };
+  var result;
+  if (bestaandId) {
+    result = await sb.from('tijdregistraties').update(data).eq('id', bestaandId);
+  } else {
+    data.aangemaakt_iso = new Date().toISOString();
+    result = await sb.from('tijdregistraties').insert(data);
+  }
+  if (result.error) { toonNotificatie('Fout: ' + result.error.message, true); return; }
+  toonNotificatie('✓ Tijd geboekt');
+  sluitTijdregWindow(winId);
+  await laadTijdregistraties(taakId);
+}
+
+async function verwijderTijdreg(regId, taakId) {
+  if (!confirm('Tijdregistratie verwijderen?')) return;
+  await sb.from('tijdregistraties').delete().eq('id', regId);
+  toonNotificatie('🗑 Tijdregistratie verwijderd');
+  await laadTijdregistraties(taakId);
+}
+
+function sluitTijdregWindow(winId) {
+  var win = document.getElementById(winId);
+  if (win) win.remove();
+  delete openWindows['tijdreg-' + winId];
 }
 
 function toggleMinimizeTaak(winId) {
