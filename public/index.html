@@ -936,7 +936,7 @@ function maakTaakFloatingWindow(winKey, titel) {
           '<div style="display:flex;align-items:center;gap:10px;">' +
             '<span id="tw-tijdreg-totaal-'+winKey+'" style="font-size:12px;color:#4fffb0;font-weight:600;"></span>' +
             '<span id="tw-tijdreg-resterend-'+winKey+'" style="font-size:12px;font-weight:600;"></span>' +
-            '<button class="btn btn-secondary btn-sm" onclick="openNieuweTijdreg(&quot;'+winKey+'&quot;)">+ Tijd boeken</button>' +
+            '<button class="btn btn-secondary btn-sm" onclick="openNieuweTijdreg(taakWindowState[&quot;'+winKey+'&quot;]&&taakWindowState[&quot;'+winKey+'&quot;].bewerkTaakId||&quot;'+winKey+'&quot;)">+ Tijd boeken</button>' +
           '</div>' +
         '</div>' +
         '<div id="tw-tijdreg-lijst-'+winKey+'"><div style="color:var(--muted);font-size:12px;font-style:italic;">Nog geen tijd geboekt.</div></div>' +
