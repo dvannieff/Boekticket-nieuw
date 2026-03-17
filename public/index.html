@@ -1155,10 +1155,18 @@ function maakTijdregWindow(winId, taakId, bestaandeReg) {
   var win = document.createElement('div');
   win.id = winId;
   win.style.cssText = 'position:fixed;top:'+(140+offset)+'px;left:'+(320+offset)+'px;width:420px;min-width:320px;min-height:320px;background:#16181f;border:1px solid #2a2d38;border-radius:12px;box-shadow:0 20px 60px rgba(0,0,0,0.6);z-index:'+(++floatingWindowZIndex)+';display:flex;flex-direction:column;overflow:hidden;resize:both;';
+  function toLocalDateTimeStr(d) {
+    var y = d.getFullYear();
+    var mo = String(d.getMonth()+1).padStart(2,'0');
+    var dy = String(d.getDate()).padStart(2,'0');
+    var h = String(d.getHours()).padStart(2,'0');
+    var mi = String(d.getMinutes()).padStart(2,'0');
+    return y+'-'+mo+'-'+dy+'T'+h+':'+mi;
+  }
   var nu = new Date();
-  var nuStr = nu.toISOString().slice(0,16);
-  var startVal = bestaandeReg && bestaandeReg.start_tijd ? new Date(bestaandeReg.start_tijd).toISOString().slice(0,16) : nuStr;
-  var eindVal = bestaandeReg && bestaandeReg.eind_tijd ? new Date(bestaandeReg.eind_tijd).toISOString().slice(0,16) : '';
+  var nuStr = toLocalDateTimeStr(nu);
+  var startVal = bestaandeReg && bestaandeReg.start_tijd ? toLocalDateTimeStr(new Date(bestaandeReg.start_tijd)) : nuStr;
+  var eindVal = bestaandeReg && bestaandeReg.eind_tijd ? toLocalDateTimeStr(new Date(bestaandeReg.eind_tijd)) : '';
   var bestUur = bestaandeReg ? Math.floor((bestaandeReg.bestede_tijd||0)/60) : 0;
   var bestMin = bestaandeReg ? (bestaandeReg.bestede_tijd||0)%60 : 0;
   var opm = bestaandeReg ? (bestaandeReg.opmerking||'') : '';
@@ -1192,6 +1200,16 @@ function maakTijdregWindow(winId, taakId, bestaandeReg) {
   openWindows['tijdreg-' + winId] = true;
 }
 
+function toLocalDateTimeString(date) {
+  var offset = date.getTimezoneOffset() * 60000;
+  return new Date(date.getTime() - offset).toISOString().slice(0,16);
+}
+
+function toLocalDatetimeStr(date) {
+  var offset = date.getTimezoneOffset() * 60000;
+  return new Date(date.getTime() - offset).toISOString().slice(0,16);
+}
+
 function berekenTijdregTotaal(winId) {
   var startEl = document.getElementById('tr-start-' + winId);
   var eindEl = document.getElementById('tr-eind-' + winId);
@@ -1202,7 +1220,7 @@ function berekenTijdregTotaal(winId) {
     var diff = (new Date(eindEl.value) - new Date(startEl.value)) / 60000;
     if (diff > 0) {
       urenEl.value = Math.floor(diff/60);
-      minEl.value = diff%60;
+      minEl.value = diff % 60;
       if (totaalEl) totaalEl.textContent = '= ' + minToTijd(diff);
     }
   }
@@ -1221,7 +1239,12 @@ function pasTijdAanOpInput(winId) {
   // Pas eindtijd aan op basis van starttijd + handmatige invoer
   if (startEl.value && totMin > 0) {
     var nieuweEind = new Date(new Date(startEl.value).getTime() + totMin*60000);
-    eindEl.value = nieuweEind.toISOString().slice(0,16);
+    var y = nieuweEind.getFullYear();
+    var mo = String(nieuweEind.getMonth()+1).padStart(2,'0');
+    var d = String(nieuweEind.getDate()).padStart(2,'0');
+    var h = String(nieuweEind.getHours()).padStart(2,'0');
+    var mi = String(nieuweEind.getMinutes()).padStart(2,'0');
+    eindEl.value = y+'-'+mo+'-'+d+'T'+h+':'+mi;
   }
 }
 
