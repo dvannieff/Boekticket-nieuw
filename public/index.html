@@ -1473,6 +1473,8 @@ async function openNieuwTicket(m) {
   var aanmakerEl = document.getElementById('tw-aanmaker-' + winKey);
   if (aanmakerEl) aanmakerEl.value = gebruikerNaam(huidigGebruiker.id, huidigGebruiker.email);
   twSelectPrio(winKey, 'laag');
+  var ownerEl = document.getElementById('tw-owner-' + winKey);
+  if (ownerEl) ownerEl.value = huidigGebruiker.id;
   if (instellingen.proxyUrl && m.id && !String(m.id).startsWith('MUT-')) {
     try {
       var resp = await fetch(instellingen.proxyUrl+'/api/mutationdetail?id='+parseInt(m.id));
