@@ -349,6 +349,21 @@
         <button class="btn btn-secondary btn-sm" onclick="slaNummeringOp()">✓ Opslaan</button>
       </div>
       <div class="settings-card">
+        <h2>🔢 Taaknummering</h2>
+        <p>Stel het startnummer in voor taken. Nieuwe taken tellen automatisch op.</p>
+        <div style="display:flex;gap:12px;flex-wrap:wrap;">
+          <div class="field" style="flex:1;min-width:120px">
+            <label>Prefix</label>
+            <input type="text" value="TSK" disabled style="opacity:0.5;cursor:not-allowed;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:10px 14px;border-radius:8px;width:100%;box-sizing:border-box;">
+          </div>
+          <div class="field" style="flex:1;min-width:120px">
+            <label>Volgend nummer</label>
+            <input type="number" id="taakStartnummer" min="1" placeholder="1">
+          </div>
+        </div>
+        <button class="btn btn-secondary btn-sm" onclick="slaTaakNummeringOp()">✓ Opslaan</button>
+      </div>
+      <div class="settings-card">
         <h2>🏷️ Ticket statussen beheren</h2>
         <p>Voeg statussen toe of verwijder ze voor tickets.</p>
         <div class="status-list" id="statusList"></div>
@@ -568,6 +583,8 @@ async function initialiseerApp(user) {
   taakStatussen = instellingen.taakStatussen || ['Open','In uitvoering','Gereed'];
   taakPrioriteiten = instellingen.taakPrioriteiten || ['Laag','Normaal','Hoog','Urgent'];
   taakTeller = instellingen.taakTeller || 0;
+  var taakStartEl = document.getElementById('taakStartnummer');
+  if (taakStartEl) taakStartEl.value = taakTeller + 1;
   renderTaakStatusList();
   renderTaakPrioList();
 
@@ -795,6 +812,14 @@ async function slaNummeringOp() {
   toonNotificatie('✓ Nummering opgeslagen — volgend ticket: ' + tktPrefix() + String(start).padStart(4,'0'));
 }
 
+async function slaTaakNummeringOp() {
+  var start = parseInt(document.getElementById('taakStartnummer').value) || 1;
+  taakTeller = start - 1;
+  document.getElementById('taakStartnummer').value = start;
+  await slaInstellingenOp();
+  toonNotificatie('✓ Taaknummering opgeslagen — volgende taak: TSK-' + String(start).padStart(4,'0'));
+}
+
 async function slaStatussenOp() {
   await slaInstellingenOp();
   renderFilterBar(); renderTickets(); toonNotificatie('✓ Statussen opgeslagen');
@@ -920,6 +945,9 @@ async function openNieuweTaak(ticketId, ticketTitel) {
   var win = maakTaakFloatingWindow(winKey, 'Nieuwe taak');
   var refEl = document.getElementById('tw-taak-ref-' + winKey);
   if (refEl) refEl.textContent = '🎫 ' + ticketId + (ticketTitel ? ' — ' + ticketTitel : '');
+  // Zet ingelogde gebruiker als standaard eigenaar
+  var eigenaarEl = document.getElementById('tw-taak-eigenaar-' + winKey);
+  if (eigenaarEl && huidigGebruiker) eigenaarEl.value = huidigGebruiker.id;
 }
 
 async function openBewerkTaak(taakId, ticketId) {
